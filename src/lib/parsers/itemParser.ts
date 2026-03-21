@@ -1,0 +1,55 @@
+import type { Item } from "../../types/item";
+
+interface RawItemData {
+  Name: string;
+  InternalName: string;
+  Description?: string;
+  IconId?: number;
+  Keywords: string[];
+  MaxStackSize: number;
+  Value: number;
+  NumUses?: number;
+}
+
+export function parseItems(json: string): Item[] {
+  const raw: Record<string, RawItemData> = JSON.parse(json);
+  return Object.entries(raw).map(([key, data]) => ({
+    id: key,
+    ...data,
+  }));
+}
+
+export interface ItemIndexes {
+  byId: Map<string, Item>;
+  byItemCode: Map<number, Item>;
+  byKeyword: Map<string, Item[]>;
+}
+
+export function buildItemIndexes(items: Item[]): ItemIndexes {
+  const byId = new Map<string, Item>();
+  const byItemCode = new Map<number, Item>();
+  const byKeyword = new Map<string, Item[]>();
+
+  for (const item of items) {
+    // Index by string id (e.g. "item_1")
+    byId.set(item.id, item);
+
+    // Extract numeric code from id (e.g. "item_1" -> 1)
+    const match = item.id.match(/(\d+)$/);
+    if (match) {
+      byItemCode.set(parseInt(match[1], 10), item);
+    }
+
+    // Index by keyword
+    for (const keyword of item.Keywords) {
+      const kwList = byKeyword.get(keyword);
+      if (kwList) {
+        kwList.push(item);
+      } else {
+        byKeyword.set(keyword, [item]);
+      }
+    }
+  }
+
+  return { byId, byItemCode, byKeyword };
+}
