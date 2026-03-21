@@ -9,10 +9,9 @@ import {
 } from "../../lib/parsers/recipeParser";
 import { parseItems, buildItemIndexes } from "../../lib/parsers/itemParser";
 import { parseCharacterSheet } from "../../lib/parsers/characterParser";
-import {
-  parseInventory,
-} from "../../lib/parsers/inventoryParser";
+import { parseInventory } from "../../lib/parsers/inventoryParser";
 import { parseXpTables } from "../../lib/parsers/xpTableParser";
+import { parseSourcesData, parseNpcNames } from "../../lib/parsers/sourceParser";
 
 interface ReportFile {
   filename: string;
@@ -21,13 +20,24 @@ interface ReportFile {
   file_type: string;
 }
 
+async function tryReadFile(path: string): Promise<string | null> {
+  try {
+    return await invoke<string>("read_file_content", { path });
+  } catch {
+    return null;
+  }
+}
+
 export function SettingsPage() {
   const setRecipes = useGameDataStore((s) => s.setRecipes);
   const setItems = useGameDataStore((s) => s.setItems);
   const setXpTables = useGameDataStore((s) => s.setXpTables);
+  const setSources = useGameDataStore((s) => s.setSources);
+  const setNpcNames = useGameDataStore((s) => s.setNpcNames);
   const setLoading = useGameDataStore((s) => s.setLoading);
   const loading = useGameDataStore((s) => s.loading);
   const loaded = useGameDataStore((s) => s.loaded);
+  const sourcesLoaded = useGameDataStore((s) => s.sourcesLoaded);
   const setCharacter = useCharacterStore((s) => s.setCharacter);
   const setInventory = useInventoryStore((s) => s.setInventory);
   const character = useCharacterStore((s) => s.character);
@@ -48,20 +58,22 @@ export function SettingsPage() {
       const pg = await invoke<string | null>("detect_pg_path");
       setPgPath(pg);
       if (pg) {
-        addStatus(`Found PG Reports at: ${pg}`);
+        addStatus(`✓ Found PG Reports at: ${pg}`);
         const files = await invoke<ReportFile[]>("list_report_files", {
           reportsPath: pg,
         });
         setReportFiles(files);
-        addStatus(`Found ${files.length} report files`);
+        addStatus(`  Found ${files.length} report files`);
       } else {
-        addStatus("Could not auto-detect PG install path");
+        addStatus("✗ Could not auto-detect PG install path — use drag-and-drop below");
       }
 
       const cdn = await invoke<string | null>("get_cdn_data_path");
       setCdnPath(cdn);
       if (cdn) {
-        addStatus(`Found CDN data at: ${cdn}`);
+        addStatus(`✓ Found CDN data at: ${cdn}`);
+      } else {
+        addStatus("✗ CDN data not found — drag and drop JSON files below");
       }
     } catch (e) {
       addStatus(`Error: ${e}`);
@@ -71,6 +83,7 @@ export function SettingsPage() {
   const loadCdnData = useCallback(async () => {
     if (!cdnPath) return;
     setLoading(true);
+    setStatus([]);
     try {
       addStatus("Loading recipes...");
       const recipesJson = await invoke<string>("read_file_content", {
@@ -79,7 +92,7 @@ export function SettingsPage() {
       const recipes = parseRecipes(recipesJson);
       const recipeIndexes = buildRecipeIndexes(recipes);
       setRecipes(recipes, recipeIndexes);
-      addStatus(`Loaded ${recipes.length} recipes`);
+      addStatus(`✓ ${recipes.length} recipes loaded`);
 
       addStatus("Loading items...");
       const itemsJson = await invoke<string>("read_file_content", {
@@ -88,7 +101,7 @@ export function SettingsPage() {
       const items = parseItems(itemsJson);
       const itemIndexes = buildItemIndexes(items);
       setItems(items, itemIndexes);
-      addStatus(`Loaded ${items.length} items`);
+      addStatus(`✓ ${items.length} items loaded`);
 
       addStatus("Loading XP tables...");
       const xpJson = await invoke<string>("read_file_content", {
@@ -96,15 +109,31 @@ export function SettingsPage() {
       });
       const xpTables = parseXpTables(xpJson);
       setXpTables(xpTables);
-      addStatus(`Loaded ${xpTables.length} XP tables`);
+      addStatus(`✓ ${xpTables.length} XP tables loaded`);
 
-      addStatus("Game data loaded successfully!");
+      // Load optional sources and NPC data
+      addStatus("Loading item sources...");
+      const sourcesJson = await tryReadFile(`${cdnPath}/sources_items.json`);
+      if (sourcesJson) {
+        const sources = parseSourcesData(sourcesJson);
+        setSources(sources);
+        addStatus(`✓ Item sources loaded`);
+      }
+
+      const npcsJson = await tryReadFile(`${cdnPath}/npcs.json`);
+      if (npcsJson) {
+        const npcMap = parseNpcNames(npcsJson);
+        setNpcNames(npcMap);
+        addStatus(`✓ NPC names loaded (${npcMap.size} NPCs)`);
+      }
+
+      addStatus("✓ All game data loaded!");
     } catch (e) {
-      addStatus(`Error loading CDN data: ${e}`);
+      addStatus(`✗ Error: ${e}`);
     } finally {
       setLoading(false);
     }
-  }, [cdnPath, addStatus, setRecipes, setItems, setXpTables, setLoading]);
+  }, [cdnPath, addStatus, setRecipes, setItems, setXpTables, setSources, setNpcNames, setLoading]);
 
   const loadCharacter = useCallback(async () => {
     const charFile = reportFiles.find((f) => f.file_type === "character");
@@ -119,10 +148,12 @@ export function SettingsPage() {
       const sheet = parseCharacterSheet(json);
       setCharacter(sheet);
       addStatus(
-        `Loaded character: ${sheet.Character} @ ${sheet.ServerName} (${Object.keys(sheet.Skills).length} skills)`
+        `✓ Character loaded: ${sheet.Character} @ ${sheet.ServerName} — ${
+          Object.keys(sheet.Skills).length
+        } skills, ${Object.keys(sheet.RecipeCompletions).length} recipe completions`
       );
     } catch (e) {
-      addStatus(`Error loading character: ${e}`);
+      addStatus(`✗ Error loading character: ${e}`);
     }
   }, [reportFiles, addStatus, setCharacter]);
 
@@ -142,14 +173,14 @@ export function SettingsPage() {
       const inv = parseInventory(json);
       setInventory(inv.Items, inv.Timestamp, inv.Character);
       addStatus(
-        `Loaded inventory: ${inv.Items.length} items from ${latest.filename}`
+        `✓ Inventory loaded: ${inv.Items.length} items from "${latest.filename}"`
       );
     } catch (e) {
-      addStatus(`Error loading inventory: ${e}`);
+      addStatus(`✗ Error loading inventory: ${e}`);
     }
   }, [reportFiles, addStatus, setInventory]);
 
-  // Drag-and-drop handler for manual file loading
+  // Drag-and-drop handler
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
       e.preventDefault();
@@ -163,33 +194,43 @@ export function SettingsPage() {
           const recipes = parseRecipes(text);
           const indexes = buildRecipeIndexes(recipes);
           setRecipes(recipes, indexes);
-          addStatus(`Loaded ${recipes.length} recipes from drag-drop`);
+          addStatus(`✓ ${recipes.length} recipes loaded (drag-drop)`);
           setLoading(false);
         } else if (file.name === "items.json") {
           setLoading(true);
           const items = parseItems(text);
           const indexes = buildItemIndexes(items);
           setItems(items, indexes);
-          addStatus(`Loaded ${items.length} items from drag-drop`);
+          addStatus(`✓ ${items.length} items loaded (drag-drop)`);
           setLoading(false);
         } else if (file.name === "xptables.json") {
           const tables = parseXpTables(text);
           setXpTables(tables);
-          addStatus(`Loaded ${tables.length} XP tables from drag-drop`);
+          addStatus(`✓ XP tables loaded (drag-drop)`);
+        } else if (file.name === "sources_items.json") {
+          const sources = parseSourcesData(text);
+          setSources(sources);
+          addStatus(`✓ Item sources loaded (drag-drop)`);
+        } else if (file.name === "npcs.json") {
+          const npcMap = parseNpcNames(text);
+          setNpcNames(npcMap);
+          addStatus(`✓ NPC data loaded: ${npcMap.size} NPCs (drag-drop)`);
         } else if (file.name.startsWith("Character_")) {
           const sheet = parseCharacterSheet(text);
           setCharacter(sheet);
-          addStatus(`Loaded character ${sheet.Character} from drag-drop`);
+          addStatus(`✓ Character loaded: ${sheet.Character} (drag-drop)`);
         } else if (file.name.includes("_items_")) {
           const inv = parseInventory(text);
           setInventory(inv.Items, inv.Timestamp, inv.Character);
           addStatus(
-            `Loaded ${inv.Items.length} inventory items from drag-drop`
+            `✓ ${inv.Items.length} inventory items loaded (drag-drop)`
           );
+        } else {
+          addStatus(`? Unrecognized file: ${file.name}`);
         }
       }
     },
-    [addStatus, setRecipes, setItems, setXpTables, setCharacter, setInventory, setLoading]
+    [addStatus, setRecipes, setItems, setXpTables, setSources, setNpcNames, setCharacter, setInventory, setLoading]
   );
 
   return (
@@ -198,9 +239,10 @@ export function SettingsPage() {
 
       {/* Auto-detect */}
       <section className="bg-bg-secondary rounded-lg p-4 space-y-3">
-        <h3 className="text-sm font-medium text-text-secondary">
-          Auto-Detect Game Files
-        </h3>
+        <h3 className="font-medium text-sm">Auto-Detect Game Files</h3>
+        <p className="text-xs text-text-muted">
+          Automatically finds your PG install and the local CDN data folder.
+        </p>
         <button
           onClick={detectPaths}
           className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded text-sm transition-colors"
@@ -218,9 +260,7 @@ export function SettingsPage() {
       {/* Load buttons */}
       {(pgPath || cdnPath) && (
         <section className="bg-bg-secondary rounded-lg p-4 space-y-3">
-          <h3 className="text-sm font-medium text-text-secondary">
-            Load Data
-          </h3>
+          <h3 className="font-medium text-sm">Load Data</h3>
           <div className="flex flex-wrap gap-2">
             {cdnPath && (
               <button
@@ -228,7 +268,7 @@ export function SettingsPage() {
                 disabled={loading}
                 className="bg-accent hover:bg-accent-hover disabled:opacity-50 text-white px-4 py-2 rounded text-sm transition-colors"
               >
-                {loading ? "Loading..." : loaded ? "Reload Game Data" : "Load Game Data"}
+                {loading ? "Loading..." : loaded ? "↻ Reload Game Data" : "Load Game Data"}
               </button>
             )}
             {reportFiles.some((f) => f.file_type === "character") && (
@@ -236,7 +276,7 @@ export function SettingsPage() {
                 onClick={loadCharacter}
                 className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded text-sm transition-colors"
               >
-                {character ? "Reload Character" : "Load Character"}
+                {character ? "↻ Reload Character" : "Load Character"}
               </button>
             )}
             {reportFiles.some((f) => f.file_type === "inventory") && (
@@ -244,12 +284,22 @@ export function SettingsPage() {
                 onClick={loadInventory}
                 className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded text-sm transition-colors"
               >
-                {inventoryTimestamp
-                  ? "Reload Inventory"
-                  : "Load Latest Inventory"}
+                {inventoryTimestamp ? "↻ Reload Inventory" : "Load Latest Inventory"}
               </button>
             )}
           </div>
+          {reportFiles.length > 0 && (
+            <div className="text-xs text-text-muted space-y-0.5">
+              {reportFiles.filter((f) => f.file_type === "inventory").slice(0, 3).map((f) => (
+                <div key={f.path}>
+                  {f.file_type === "inventory" ? "📦" : "👤"} {f.filename}
+                  <span className="ml-2 opacity-60">
+                    {new Date(f.modified_timestamp * 1000).toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -257,26 +307,42 @@ export function SettingsPage() {
       <section
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
-        className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-accent transition-colors"
+        className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-accent transition-colors cursor-pointer"
       >
-        <p className="text-text-secondary text-sm">
+        <div className="text-2xl mb-2">📂</div>
+        <p className="text-text-secondary text-sm font-medium">
           Drag & drop JSON files here
         </p>
         <p className="text-text-muted text-xs mt-1">
-          Accepts: recipes.json, items.json, xptables.json, Character_*.json,
-          *_items_*.json
+          recipes.json · items.json · xptables.json · sources_items.json ·
+          npcs.json · Character_*.json · *_items_*.json
         </p>
       </section>
 
       {/* Status log */}
       {status.length > 0 && (
         <section className="bg-bg-secondary rounded-lg p-4">
-          <h3 className="text-sm font-medium text-text-secondary mb-2">
-            Log
-          </h3>
-          <div className="space-y-1 max-h-48 overflow-y-auto">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-text-secondary">Log</h3>
+            <button
+              onClick={() => setStatus([])}
+              className="text-xs text-text-muted hover:text-text-secondary"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="space-y-0.5 max-h-48 overflow-y-auto font-mono">
             {status.map((msg, i) => (
-              <p key={i} className="text-xs text-text-muted font-mono">
+              <p
+                key={i}
+                className={`text-xs ${
+                  msg.startsWith("✓")
+                    ? "text-success"
+                    : msg.startsWith("✗")
+                    ? "text-danger"
+                    : "text-text-muted"
+                }`}
+              >
                 {msg}
               </p>
             ))}
@@ -284,36 +350,59 @@ export function SettingsPage() {
         </section>
       )}
 
-      {/* Current state summary */}
+      {/* Current state */}
       <section className="bg-bg-secondary rounded-lg p-4">
-        <h3 className="text-sm font-medium text-text-secondary mb-2">
+        <h3 className="text-sm font-medium text-text-secondary mb-3">
           Current State
         </h3>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div>Game Data:</div>
-          <div className={loaded ? "text-success" : "text-text-muted"}>
-            {loaded ? "Loaded" : "Not loaded"}
-          </div>
-          <div>Character:</div>
-          <div
-            className={character ? "text-success" : "text-text-muted"}
-          >
-            {character
-              ? `${character.Character} @ ${character.ServerName}`
-              : "Not loaded"}
-          </div>
-          <div>Inventory:</div>
-          <div
-            className={
-              inventoryTimestamp ? "text-success" : "text-text-muted"
+        <div className="space-y-2">
+          <StatusRow
+            label="Game Data"
+            value={loaded ? "Loaded" : "Not loaded"}
+            ok={loaded}
+          />
+          <StatusRow
+            label="Item Sources"
+            value={sourcesLoaded ? "Loaded" : "Not loaded"}
+            ok={sourcesLoaded}
+          />
+          <StatusRow
+            label="Character"
+            value={
+              character
+                ? `${character.Character} @ ${character.ServerName}`
+                : "Not loaded"
             }
-          >
-            {inventoryTimestamp
-              ? new Date(inventoryTimestamp).toLocaleString()
-              : "Not loaded"}
-          </div>
+            ok={!!character}
+          />
+          <StatusRow
+            label="Inventory"
+            value={
+              inventoryTimestamp
+                ? new Date(inventoryTimestamp).toLocaleString()
+                : "Not loaded"
+            }
+            ok={!!inventoryTimestamp}
+          />
         </div>
       </section>
+    </div>
+  );
+}
+
+function StatusRow({
+  label,
+  value,
+  ok,
+}: {
+  label: string;
+  value: string;
+  ok: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-text-muted">{label}</span>
+      <span className={ok ? "text-success" : "text-text-muted"}>{value}</span>
     </div>
   );
 }
