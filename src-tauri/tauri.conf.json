@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https://cdn.projectgorgon.com; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; connect-src 'self' https://cdn.projectgorgon.com http://cdn.projectgorgon.com http://client.projectgorgon.com; style-src 'self' 'unsafe-inline'"
     }
   },
   "bundle": {

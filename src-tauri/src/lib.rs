@@ -22,6 +22,8 @@ pub fn run() {
             commands::filesystem::read_file_content,
             commands::filesystem::get_cdn_data_path,
             commands::cdn::get_cdn_url,
+            commands::cdn::fetch_cdn_version,
+            commands::cdn::fetch_cdn_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

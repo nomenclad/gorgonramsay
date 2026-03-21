@@ -1,18 +1,12 @@
 import Dexie, { type Table } from "dexie";
 
-export interface CachedRecipe {
-  recipeId: string;
-  data: string; // JSON stringified Recipe
-}
-
-export interface CachedItem {
-  itemId: string;
-  data: string;
-}
-
-export interface CachedXpTable {
-  tableId: string;
-  data: string;
+/** Raw cached CDN file, keyed by "v{version}/{filename}" e.g. "v465/items.json" */
+export interface CachedFile {
+  key: string;    // "v465/items.json"
+  version: number;
+  filename: string;
+  content: string; // raw JSON text
+  cachedAt: number; // unix ms
 }
 
 export interface CacheMetadata {
@@ -21,17 +15,14 @@ export interface CacheMetadata {
 }
 
 export class PgDatabase extends Dexie {
-  recipes!: Table<CachedRecipe>;
-  items!: Table<CachedItem>;
-  xpTables!: Table<CachedXpTable>;
+  cdnFiles!: Table<CachedFile>;
   metadata!: Table<CacheMetadata>;
 
   constructor() {
     super("pgefficiency");
-    this.version(1).stores({
-      recipes: "recipeId",
-      items: "itemId",
-      xpTables: "tableId",
+    // Version 2: unified cdnFiles table replaces separate recipe/item/xpTable tables
+    this.version(2).stores({
+      cdnFiles: "key, version, filename",
       metadata: "key",
     });
   }
@@ -39,20 +30,46 @@ export class PgDatabase extends Dexie {
 
 export const db = new PgDatabase();
 
-export async function getCacheVersion(): Promise<string | null> {
+/** Returns the cached version number stored in metadata, or null. */
+export async function getCachedVersion(): Promise<number | null> {
   const meta = await db.metadata.get("cdnVersion");
-  return meta?.value ?? null;
+  return meta ? Number(meta.value) : null;
 }
 
-export async function setCacheVersion(version: string): Promise<void> {
-  await db.metadata.put({ key: "cdnVersion", value: version });
+/** Persists the cached version number. */
+export async function setCachedVersion(version: number): Promise<void> {
+  await db.metadata.put({ key: "cdnVersion", value: String(version) });
 }
 
+/** Get a single cached CDN file's content, or null if not cached for this version. */
+export async function getCachedFile(
+  version: number,
+  filename: string
+): Promise<string | null> {
+  const key = `v${version}/${filename}`;
+  const row = await db.cdnFiles.get(key);
+  return row?.content ?? null;
+}
+
+/** Store a CDN file in the cache. */
+export async function setCachedFile(
+  version: number,
+  filename: string,
+  content: string
+): Promise<void> {
+  const key = `v${version}/${filename}`;
+  await db.cdnFiles.put({ key, version, filename, content, cachedAt: Date.now() });
+}
+
+/** Remove all cached files for versions other than the given one. */
+export async function evictOldVersions(currentVersion: number): Promise<void> {
+  await db.cdnFiles
+    .where("version")
+    .notEqual(currentVersion)
+    .delete();
+}
+
+/** Clear everything. */
 export async function clearCache(): Promise<void> {
-  await Promise.all([
-    db.recipes.clear(),
-    db.items.clear(),
-    db.xpTables.clear(),
-    db.metadata.clear(),
-  ]);
+  await Promise.all([db.cdnFiles.clear(), db.metadata.clear()]);
 }

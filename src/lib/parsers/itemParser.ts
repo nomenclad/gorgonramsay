@@ -5,7 +5,7 @@ interface RawItemData {
   InternalName: string;
   Description?: string;
   IconId?: number;
-  Keywords: string[];
+  Keywords?: string[];
   MaxStackSize: number;
   Value: number;
   NumUses?: number;
@@ -13,10 +13,13 @@ interface RawItemData {
 
 export function parseItems(json: string): Item[] {
   const raw: Record<string, RawItemData> = JSON.parse(json);
-  return Object.entries(raw).map(([key, data]) => ({
-    id: key,
-    ...data,
-  }));
+  return Object.entries(raw)
+    .filter(([, data]) => data && typeof data === "object" && data.Name)
+    .map(([key, data]) => ({
+      id: key,
+      ...data,
+      Keywords: data.Keywords ?? [],
+    }));
 }
 
 export interface ItemIndexes {
