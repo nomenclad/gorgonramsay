@@ -15,7 +15,7 @@ import { ResizableTh, SortableResizableTh } from "../common/ResizableTh";
 import { Pagination } from "../common/Pagination";
 
 type KnowledgeFilter = "all" | "known" | "unknown" | "canlearn" | "toolow" | "starred";
-type SortKey = "name" | "skill" | "level" | "xp" | "effXp" | "dropoff";
+type SortKey = "name" | "type" | "skill" | "level" | "xp" | "effXp" | "dropoff";
 type SortDir = "asc" | "desc";
 type FoodCategory = "all" | "meal" | "snack";
 
@@ -42,7 +42,7 @@ export function RecipeBrowser() {
   const [sortKey, setSortKey] = useState<SortKey>("level");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(0);
-  const { widths: colW, startResize } = useResizableColumns("recipes-v3", [40, 55, 220, 130, 70, 80, 80, 90, 160, 220]);
+  const { widths: colW, startResize } = useResizableColumns("recipes-v4", [40, 55, 220, 70, 130, 70, 80, 80, 90, 160, 220]);
   const colFilters = useColumnFilters();
   const navigateToCraft = useNavStore((s) => s.navigateToCraft);
   const navigateToIngredient = useNavStore((s) => s.navigateToIngredient);
@@ -208,6 +208,11 @@ export function RecipeBrowser() {
     return [...results].sort((a, b) => {
       let diff = 0;
       if (sortKey === "name") diff = a.Name.localeCompare(b.Name);
+      else if (sortKey === "type") {
+        const ta = getRecipeFoodType(a) ?? "";
+        const tb = getRecipeFoodType(b) ?? "";
+        diff = ta.localeCompare(tb);
+      }
       else if (sortKey === "skill") diff = a.Skill.localeCompare(b.Skill) || a.SkillLevelReq - b.SkillLevelReq;
       else if (sortKey === "level") diff = a.SkillLevelReq - b.SkillLevelReq || a.Name.localeCompare(b.Name);
       else if (sortKey === "xp") diff = a.RewardSkillXp - b.RewardSkillXp;
@@ -406,20 +411,21 @@ export function RecipeBrowser() {
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="text-sm" style={{ tableLayout: "fixed", width: colW.slice(0, character ? 10 : 9).reduce((a, b) => a + b, 0) }}>
+        <table className="text-sm" style={{ tableLayout: "fixed", width: colW.slice(0, character ? 11 : 10).reduce((a, b) => a + b, 0) }}>
           <thead>
             <tr className="border-b border-border text-left text-text-secondary text-xs">
               <ResizableTh width={colW[0]} onStartResize={(x) => startResize(0, x)}>Craft</ResizableTh>
               <ResizableTh width={colW[1]} onStartResize={(x) => startResize(1, x)}>Qty</ResizableTh>
               <SortableResizableTh label="Recipe" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} width={colW[2]} onStartResize={(x) => startResize(2, x)} />
-              <SortableResizableTh label="Skill" col="skill" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} width={colW[3]} onStartResize={(x) => startResize(3, x)}
+              <SortableResizableTh label="Type" col="type" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} width={colW[3]} onStartResize={(x) => startResize(3, x)} />
+              <SortableResizableTh label="Skill" col="skill" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} width={colW[4]} onStartResize={(x) => startResize(4, x)}
                 filterOptions={skillOptions} filterSelected={colFilters.filters["skill"] ?? new Set()} onFilterChange={(s) => colFilters.setFilter("skill", s)} />
-              <SortableResizableTh label="Lvl Req" col="level" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[4]} onStartResize={(x) => startResize(4, x)} />
-              <SortableResizableTh label="Base XP" col="xp" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[5]} onStartResize={(x) => startResize(5, x)} />
-              {character && <SortableResizableTh label="Eff XP" col="effXp" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[6]} onStartResize={(x) => startResize(6, x)} />}
-              <SortableResizableTh label="Dropoff Lvl" col="dropoff" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[7]} onStartResize={(x) => startResize(7, x)} />
-              <ResizableTh width={colW[8]} onStartResize={(x) => startResize(8, x)}>Recipe Source</ResizableTh>
-              <ResizableTh width={colW[9]} onStartResize={(x) => startResize(9, x)}>Ingredients</ResizableTh>
+              <SortableResizableTh label="Lvl Req" col="level" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[5]} onStartResize={(x) => startResize(5, x)} />
+              <SortableResizableTh label="Base XP" col="xp" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[6]} onStartResize={(x) => startResize(6, x)} />
+              {character && <SortableResizableTh label="Eff XP" col="effXp" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[7]} onStartResize={(x) => startResize(7, x)} />}
+              <SortableResizableTh label="Dropoff Lvl" col="dropoff" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[8]} onStartResize={(x) => startResize(8, x)} />
+              <ResizableTh width={colW[9]} onStartResize={(x) => startResize(9, x)}>Recipe Source</ResizableTh>
+              <ResizableTh width={colW[10]} onStartResize={(x) => startResize(10, x)}>Ingredients</ResizableTh>
             </tr>
           </thead>
           <tbody>
@@ -488,6 +494,14 @@ export function RecipeBrowser() {
                         </span>
                       )}
                     </div>
+                  </td>
+                  <td className="py-2 px-3 text-xs">
+                    {(() => {
+                      const ft = getRecipeFoodType(recipe);
+                      if (ft === "meal") return <span className="text-accent">Meal</span>;
+                      if (ft === "snack") return <span className="text-gold">Snack</span>;
+                      return <span className="text-text-muted">—</span>;
+                    })()}
                   </td>
                   <td className="py-2 px-3 text-text-secondary text-xs">
                     {formatSkillName(recipe.Skill)}
