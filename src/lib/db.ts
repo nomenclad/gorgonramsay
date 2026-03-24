@@ -14,9 +14,15 @@ export interface CacheMetadata {
   value: string;
 }
 
+export interface StoredHandle {
+  key: string;
+  handle: FileSystemDirectoryHandle;
+}
+
 export class PgDatabase extends Dexie {
   cdnFiles!: Table<CachedFile>;
   metadata!: Table<CacheMetadata>;
+  directoryHandles!: Table<StoredHandle>;
 
   constructor() {
     super("pgefficiency");
@@ -24,6 +30,12 @@ export class PgDatabase extends Dexie {
     this.version(2).stores({
       cdnFiles: "key, version, filename",
       metadata: "key",
+    });
+    // Version 3: persist FileSystemDirectoryHandle for web folder access
+    this.version(3).stores({
+      cdnFiles: "key, version, filename",
+      metadata: "key",
+      directoryHandles: "key",
     });
   }
 }
@@ -72,4 +84,25 @@ export async function evictOldVersions(currentVersion: number): Promise<void> {
 /** Clear everything. */
 export async function clearCache(): Promise<void> {
   await Promise.all([db.cdnFiles.clear(), db.metadata.clear()]);
+}
+
+/** Retrieve a stored FileSystemDirectoryHandle by key, or null. */
+export async function getStoredDirectoryHandle(
+  key: string
+): Promise<FileSystemDirectoryHandle | null> {
+  const row = await db.directoryHandles.get(key);
+  return row?.handle ?? null;
+}
+
+/** Persist a FileSystemDirectoryHandle (structured-cloneable) in IndexedDB. */
+export async function storeDirectoryHandle(
+  key: string,
+  handle: FileSystemDirectoryHandle
+): Promise<void> {
+  await db.directoryHandles.put({ key, handle });
+}
+
+/** Remove a stored directory handle. */
+export async function clearDirectoryHandle(key: string): Promise<void> {
+  await db.directoryHandles.delete(key);
 }

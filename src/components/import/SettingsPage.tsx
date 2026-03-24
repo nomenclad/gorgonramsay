@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { isTauri } from "../../lib/platform";
+import { isTauri, supportsFileSystemAccess } from "../../lib/platform";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useCharacterStore } from "../../stores/characterStore";
 import { useInventoryStore } from "../../stores/inventoryStore";
@@ -18,13 +18,16 @@ import {
   type DownloadProgress,
 } from "../../lib/cdnLoader";
 import { getCachedVersion } from "../../lib/db";
-
-interface ReportFile {
-  filename: string;
-  path: string;
-  modified_timestamp: number;
-  file_type: string;
-}
+import {
+  type ReportFile,
+  pickDirectory,
+  getStoredHandle,
+  clearStoredHandle,
+  verifyPermission,
+  requestPermission,
+  listReportFiles,
+  readFileContent,
+} from "../../lib/fileAccess";
 
 const THEMES = [
   { id: "default", label: "Night (Default)" },
@@ -74,9 +77,11 @@ export function SettingsPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [autoWatch, setAutoWatch] = useState(() => localStorage.getItem("autoWatch") === "true");
   const [autoWatchStatus, setAutoWatchStatus] = useState<string | null>(null);
+  const [needsPermissionGrant, setNeedsPermissionGrant] = useState(false);
 
   // Refs for polling — avoids stale closures inside setInterval
   const pgPathRef = useRef<string | null>(null);
+  const dirHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
   const lastCharTimestampRef = useRef<number>(0);
   const lastInvTimestampRef = useRef<number>(0);
 
@@ -93,14 +98,14 @@ export function SettingsPage() {
     localStorage.setItem("autoWatch", autoWatch ? "true" : "false");
   }, [autoWatch]);
 
-  // Silent loaders used by the auto-watch poller (Tauri only)
+  // Silent loaders used by the auto-watch poller
   const silentLoadCharacter = useCallback(async (files: ReportFile[]) => {
-    if (!isTauri) return;
+    const source = isTauri ? pgPathRef.current : dirHandleRef.current;
+    if (!source) return;
     const charFile = files.find((f) => f.file_type === "character");
     if (!charFile) return;
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const json = await invoke<string>("read_file_content", { path: charFile.path });
+      const json = await readFileContent(source, charFile.path);
       const sheet = parseCharacterSheet(json);
       setCharacter(sheet);
       setAutoWatchStatus(`Character updated at ${new Date().toLocaleTimeString()}`);
@@ -108,14 +113,14 @@ export function SettingsPage() {
   }, [setCharacter]);
 
   const silentLoadInventory = useCallback(async (files: ReportFile[]) => {
-    if (!isTauri) return;
+    const source = isTauri ? pgPathRef.current : dirHandleRef.current;
+    if (!source) return;
     const invFiles = files
       .filter((f) => f.file_type === "inventory")
       .sort((a, b) => b.modified_timestamp - a.modified_timestamp);
     if (invFiles.length === 0) return;
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const json = await invoke<string>("read_file_content", { path: invFiles[0].path });
+      const json = await readFileContent(source, invFiles[0].path);
       const inv = parseInventory(json);
       setInventory(inv.Items, inv.Timestamp, inv.Character);
       setAutoWatchStatus(`Inventory updated at ${new Date().toLocaleTimeString()}`);
@@ -129,11 +134,10 @@ export function SettingsPage() {
     let isFirstPoll = true;
 
     const poll = async () => {
-      const path = pgPathRef.current;
-      if (!path) return;
+      const source = isTauri ? pgPathRef.current : dirHandleRef.current;
+      if (!source) return;
       try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        const files = await invoke<ReportFile[]>("list_report_files", { reportsPath: path });
+        const files = await listReportFiles(source);
 
         const charFile = files.find((f) => f.file_type === "character");
         const invFile = files
@@ -141,24 +145,23 @@ export function SettingsPage() {
           .sort((a, b) => b.modified_timestamp - a.modified_timestamp)[0];
 
         if (!isFirstPoll) {
-          // Reload character if it changed
           if (charFile && charFile.modified_timestamp > lastCharTimestampRef.current) {
             await silentLoadCharacter(files);
           }
-          // Reload inventory if it changed
           if (invFile && invFile.modified_timestamp > lastInvTimestampRef.current) {
             await silentLoadInventory(files);
           }
         }
 
-        // Seed / update last-seen timestamps
         if (charFile) lastCharTimestampRef.current = charFile.modified_timestamp;
         if (invFile) lastInvTimestampRef.current = invFile.modified_timestamp;
         isFirstPoll = false;
-      } catch { /* silent — folder may be temporarily inaccessible */ }
+      } catch {
+        // silent — folder may be temporarily inaccessible or permission lost
+      }
     };
 
-    poll(); // seed timestamps immediately
+    poll();
     const id = setInterval(poll, 5000);
     return () => clearInterval(id);
   }, [autoWatch, pgPath, silentLoadCharacter, silentLoadInventory]);
@@ -185,6 +188,31 @@ export function SettingsPage() {
         }
       } catch {
         // silent — user can drag-drop manually
+      }
+    })();
+  }, []);
+
+  // Restore stored directory handle on mount (web only)
+  useEffect(() => {
+    if (isTauri || !supportsFileSystemAccess) return;
+    (async () => {
+      try {
+        const handle = await getStoredHandle();
+        if (!handle) return;
+        const perm = await verifyPermission(handle);
+        if (perm === "granted") {
+          dirHandleRef.current = handle;
+          setPgPath(handle.name);
+          const files = await listReportFiles(handle);
+          setReportFiles(files);
+        } else if (perm === "prompt") {
+          dirHandleRef.current = handle;
+          setNeedsPermissionGrant(true);
+        } else {
+          await clearStoredHandle();
+        }
+      } catch {
+        // silent — handle may be stale
       }
     })();
   }, []);
@@ -281,34 +309,36 @@ export function SettingsPage() {
   );
 
   const loadCharacter = useCallback(async () => {
+    const source = isTauri ? pgPath : dirHandleRef.current;
+    if (!source) { addStatus("No folder selected"); return; }
     const charFile = reportFiles.find((f) => f.file_type === "character");
     if (!charFile) { addStatus("No character file found"); return; }
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const json = await invoke<string>("read_file_content", { path: charFile.path });
+      const json = await readFileContent(source, charFile.path);
       const sheet = parseCharacterSheet(json);
       setCharacter(sheet);
       addStatus(`✓ Character loaded: ${sheet.Character} @ ${sheet.ServerName} — ${Object.keys(sheet.Skills).length} skills`);
     } catch (e) {
       addStatus(`✗ Error loading character: ${e}`);
     }
-  }, [reportFiles, addStatus, setCharacter]);
+  }, [reportFiles, addStatus, setCharacter, pgPath]);
 
   const loadInventory = useCallback(async () => {
+    const source = isTauri ? pgPath : dirHandleRef.current;
+    if (!source) { addStatus("No folder selected"); return; }
     const invFiles = reportFiles
       .filter((f) => f.file_type === "inventory")
       .sort((a, b) => b.modified_timestamp - a.modified_timestamp);
     if (invFiles.length === 0) { addStatus("No inventory files found"); return; }
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const json = await invoke<string>("read_file_content", { path: invFiles[0].path });
+      const json = await readFileContent(source, invFiles[0].path);
       const inv = parseInventory(json);
       setInventory(inv.Items, inv.Timestamp, inv.Character);
       addStatus(`✓ Inventory loaded: ${inv.Items.length} items from "${invFiles[0].filename}"`);
     } catch (e) {
       addStatus(`✗ Error loading inventory: ${e}`);
     }
-  }, [reportFiles, addStatus, setInventory]);
+  }, [reportFiles, addStatus, setInventory, pgPath]);
 
   // Drag-and-drop handler (fallback for local files)
   const handleDrop = useCallback(
@@ -450,6 +480,68 @@ export function SettingsPage() {
             >
               Browse…
             </button>
+          ) : supportsFileSystemAccess ? (
+            <div className="flex gap-2 shrink-0">
+              {needsPermissionGrant ? (
+                <button
+                  onClick={async () => {
+                    const handle = dirHandleRef.current;
+                    if (!handle) return;
+                    try {
+                      const granted = await requestPermission(handle);
+                      if (granted) {
+                        setNeedsPermissionGrant(false);
+                        setPgPath(handle.name);
+                        const files = await listReportFiles(handle);
+                        setReportFiles(files);
+                        addStatus(`✓ Permission re-granted — ${files.length} report files`);
+                      }
+                    } catch {
+                      addStatus("✗ Permission denied");
+                    }
+                  }}
+                  className="shrink-0 bg-gold/20 hover:bg-gold/30 text-gold border border-gold/40 px-3 py-1.5 rounded text-xs transition-colors"
+                >
+                  Re-grant access
+                </button>
+              ) : (
+                <button
+                  onClick={async () => {
+                    try {
+                      const handle = await pickDirectory();
+                      dirHandleRef.current = handle;
+                      setNeedsPermissionGrant(false);
+                      setPgPath(handle.name);
+                      const files = await listReportFiles(handle);
+                      setReportFiles(files);
+                      addStatus(`✓ Found ${files.length} report files`);
+                    } catch (e: unknown) {
+                      if (e instanceof DOMException && e.name === "AbortError") return;
+                      addStatus(`✗ Error selecting folder: ${e}`);
+                    }
+                  }}
+                  className="shrink-0 border border-border hover:border-accent text-text-secondary hover:text-text-primary px-3 py-1.5 rounded text-xs transition-colors"
+                >
+                  Select Reports Folder…
+                </button>
+              )}
+              {pgPath && (
+                <button
+                  onClick={async () => {
+                    dirHandleRef.current = null;
+                    await clearStoredHandle();
+                    setPgPath(null);
+                    setReportFiles([]);
+                    setNeedsPermissionGrant(false);
+                    setAutoWatch(false);
+                  }}
+                  className="shrink-0 border border-border hover:border-danger/60 text-text-muted hover:text-danger px-3 py-1.5 rounded text-xs transition-colors"
+                  title="Disconnect from this folder"
+                >
+                  Disconnect
+                </button>
+              )}
+            </div>
           ) : null}
         </div>
         {reportFiles.length > 0 && (
