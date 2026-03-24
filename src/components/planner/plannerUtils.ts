@@ -47,6 +47,10 @@ export interface StillNeededItem {
   itemName: string;
   itemCode: number;
   shortfall: number;
+  /** Total quantity needed across all planned recipes */
+  totalNeeded: number;
+  /** Quantity available in storage vaults (not on person) */
+  inStorage: number;
 }
 
 export interface GatheringRoute {
@@ -322,14 +326,16 @@ export function buildGatheringRoute(
   const stillNeeded: StillNeededItem[] = [];
 
   for (const rm of rawMaterials) {
+    const locations = getItemLocations(rm.itemCode);
     const onPerson =
-      getItemLocations(rm.itemCode).find((l) => l.vault === ON_PERSON_VAULT)?.quantity ?? 0;
+      locations.find((l) => l.vault === ON_PERSON_VAULT)?.quantity ?? 0;
     let shortfall = Math.max(0, rm.needed - onPerson);
     if (shortfall <= 0) continue;
 
-    const storageLocations = getItemLocations(rm.itemCode)
+    const storageLocations = locations
       .filter((l) => l.vault !== ON_PERSON_VAULT)
       .sort((a, b) => b.quantity - a.quantity);
+    const totalInStorage = storageLocations.reduce((s, l) => s + l.quantity, 0);
 
     for (const loc of storageLocations) {
       if (shortfall <= 0) break;
@@ -342,7 +348,13 @@ export function buildGatheringRoute(
     }
 
     if (shortfall > 0) {
-      stillNeeded.push({ itemName: rm.itemName, itemCode: rm.itemCode, shortfall });
+      stillNeeded.push({
+        itemName: rm.itemName,
+        itemCode: rm.itemCode,
+        shortfall,
+        totalNeeded: rm.needed,
+        inStorage: totalInStorage,
+      });
     }
   }
 

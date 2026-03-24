@@ -98,6 +98,9 @@ export function ForagingTab({ stillNeeded, viewMode = "list" }: Props) {
             >
               <span className="text-error font-medium shrink-0">×{item.shortfall}</span>
               <span className="text-text-primary font-medium">{item.itemName}</span>
+              {item.inStorage > 0 && (
+                <span className="text-success text-xs">({item.inStorage} in storage)</span>
+              )}
               {hasDetails && (
                 <span className="ml-auto text-text-muted shrink-0 text-xs">
                   {isExpanded ? "▲" : "▼"}

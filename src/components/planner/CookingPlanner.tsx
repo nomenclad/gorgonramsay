@@ -46,6 +46,9 @@ export function CookingPlannerPage() {
 
   const getItemQuantity = useInventoryStore((s) => s.getItemQuantity);
   const getItemLocations = useInventoryStore((s) => s.getItemLocations);
+  // Subscribe to inventory data so memos re-run when inventory changes
+  // (getItemQuantity/getItemLocations are stable function refs that won't trigger re-renders)
+  const inventoryData = useInventoryStore((s) => s.aggregated);
 
   const allZones = useMemo(() => getAllAreaZones(), [loaded]);
 
@@ -79,12 +82,12 @@ export function CookingPlannerPage() {
   // Resolve crafting chains
   const { rawItems, stepsMap } = useMemo(
     () => resolveIngredients(directTotals, recipeIndexes, getItemByCode, getItemQuantity),
-    [directTotals, recipeIndexes, getItemByCode, getItemQuantity]
+    [directTotals, recipeIndexes, getItemByCode, getItemQuantity, inventoryData]
   );
 
   const rawMaterials: RawMaterial[] = useMemo(
     () => buildRawMaterials(rawItems, getItemQuantity, recipeIndexes),
-    [rawItems, getItemQuantity, recipeIndexes]
+    [rawItems, getItemQuantity, recipeIndexes, inventoryData]
   );
 
   const craftingSteps: CraftingStep[] = useMemo(
@@ -105,7 +108,7 @@ export function CookingPlannerPage() {
       plannedRecipes.length === 0
         ? { zoneStops: [], stillNeeded: [] }
         : buildGatheringRoute(rawMaterials, getItemLocations, fmtVault, cookingZone),
-    [plannedRecipes, rawMaterials, getItemLocations, fmtVault, cookingZone]
+    [plannedRecipes, rawMaterials, getItemLocations, fmtVault, cookingZone, inventoryData]
   );
 
   // Identify garden-growable items and split stillNeeded into garden vs forage

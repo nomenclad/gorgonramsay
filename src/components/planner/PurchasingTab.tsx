@@ -48,7 +48,10 @@ export function PurchasingTab({ purchaseNeeded, cookingZone, viewMode = "list" }
           {allItems.map(({ item, npcName, zone }) => (
             <div key={item.itemCode} className="bg-bg-secondary rounded-lg p-3 border border-border flex flex-col gap-1">
               <span className="text-sm font-semibold text-text-primary">{item.itemName}</span>
-              <span className="text-error font-medium text-xs">×{item.shortfall}</span>
+              <span className="text-error font-medium text-xs">buy ×{item.shortfall}</span>
+              {item.inStorage > 0 && (
+                <span className="text-success text-xs">{item.inStorage} in storage</span>
+              )}
               <span className="text-text-muted text-xs truncate" title={`${npcName} (${zone})`}>
                 <span className="text-accent">{npcName}</span> — {zone}
               </span>
@@ -78,6 +81,9 @@ export function PurchasingTab({ purchaseNeeded, cookingZone, viewMode = "list" }
             <div key={item.itemCode} className="bg-bg-secondary rounded border border-border px-3 py-2 flex items-center gap-2 text-sm">
               <span className="text-error font-medium shrink-0">×{item.shortfall}</span>
               <span className="text-text-primary font-medium">{item.itemName}</span>
+              {item.inStorage > 0 && (
+                <span className="text-success text-xs">({item.inStorage} in storage)</span>
+              )}
               <span className="text-text-muted text-xs ml-auto">from <span className="text-accent">{npcName}</span></span>
             </div>
           ))}
