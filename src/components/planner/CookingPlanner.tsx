@@ -7,6 +7,7 @@ import {
   resolveIngredients,
   buildRawMaterials,
   buildGatheringRoute,
+  buildGardenItemSet,
   type CraftingStep,
   type RawMaterial,
   type GatheringRoute,
@@ -32,6 +33,7 @@ export function CookingPlannerPage() {
   const clearAll = usePlannerStore((s) => s.clearAll);
 
   const recipes = useGameDataStore((s) => s.recipes);
+  const items = useGameDataStore((s) => s.items);
   const recipeIndexes = useGameDataStore((s) => s.recipeIndexes);
   const getItemByCode = useGameDataStore((s) => s.getItemByCode);
   const loaded = useGameDataStore((s) => s.loaded);
@@ -101,12 +103,24 @@ export function CookingPlannerPage() {
     [plannedRecipes, rawMaterials, getItemLocations, fmtVault, cookingZone]
   );
 
+  // Identify garden-growable items and split stillNeeded into garden vs forage
+  const gardenItemSet = useMemo(
+    () => buildGardenItemSet(recipeIndexes, items),
+    [recipeIndexes, items]
+  );
+
+  const { gardenNeeded, forageNeeded } = useMemo(() => {
+    const gardenNeeded = gatheringRoute.stillNeeded.filter((i) => gardenItemSet.has(i.itemCode));
+    const forageNeeded = gatheringRoute.stillNeeded.filter((i) => !gardenItemSet.has(i.itemCode));
+    return { gardenNeeded, forageNeeded };
+  }, [gatheringRoute.stillNeeded, gardenItemSet]);
+
   const entryCount = Object.keys(entries).length;
 
   const subTabs: { key: SubTab; label: string; badge?: number }[] = [
     { key: "storage", label: "Storage", badge: gatheringRoute.zoneStops.length },
-    { key: "gardening", label: "Gardening", badge: gardeningSteps.length },
-    { key: "foraging", label: "Foraging", badge: gatheringRoute.stillNeeded.length },
+    { key: "gardening", label: "Gardening", badge: gardeningSteps.length + gardenNeeded.length },
+    { key: "foraging", label: "Foraging", badge: forageNeeded.length },
     { key: "cooking", label: "Cooking", badge: plannedRecipes.length },
     { key: "route", label: "Route" },
   ];
@@ -206,10 +220,10 @@ export function CookingPlannerPage() {
               <StorageTab gatheringRoute={gatheringRoute} cookingZone={cookingZone} />
             )}
             {activeSubTab === "gardening" && (
-              <GardeningTab gardeningSteps={gardeningSteps} gardeningZone={gardeningZone} />
+              <GardeningTab gardeningSteps={gardeningSteps} gardeningZone={gardeningZone} gardenNeeded={gardenNeeded} />
             )}
             {activeSubTab === "foraging" && (
-              <ForagingTab stillNeeded={gatheringRoute.stillNeeded} />
+              <ForagingTab stillNeeded={forageNeeded} />
             )}
             {activeSubTab === "cooking" && (
               <CookingTab
@@ -223,7 +237,8 @@ export function CookingPlannerPage() {
                 gardeningSteps={gardeningSteps}
                 cookingSteps={craftingSteps}
                 plannedRecipes={plannedRecipes}
-                stillNeeded={gatheringRoute.stillNeeded}
+                stillNeeded={forageNeeded}
+                gardenNeeded={gardenNeeded}
                 gardeningZone={gardeningZone}
                 cookingZone={cookingZone}
               />

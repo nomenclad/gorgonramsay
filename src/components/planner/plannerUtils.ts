@@ -199,6 +199,85 @@ export function buildRawMaterials(
     .sort((a, b) => b.needed - a.needed || a.itemName.localeCompare(b.itemName));
 }
 
+// ─── Garden item identification ─────────────────────────────────────────────
+
+/**
+ * Crop names that can be grown via Gardening in Project Gorgon.
+ * Sourced from the wiki: https://wiki.projectgorgon.com/wiki/Gardening
+ *
+ * Vegetables:
+ *   Potato, Onion, Cabbage, Beet, Squash, Broccoli, Carrot,
+ *   Green Pepper, Red Pepper, Corn, Escarole, Basil, Cantaloupe,
+ *   Peas, Soybeans, Tomato, Red-Leaf Lettuce
+ *
+ * Unique:
+ *   Horse Apple, Cotton, Sugarcane, Barley, Pumpkin, Flax,
+ *   Oat Groats, Tundra Rye, Evil Pumpkin, Orcish Wheat, Treant Apple
+ */
+const GARDEN_CROP_NAMES = new Set([
+  // Vegetables
+  "Potato",
+  "Onion",
+  "Cabbage",
+  "Beet",
+  "Squash",
+  "Broccoli",
+  "Carrot",
+  "Green Pepper",
+  "Red Pepper",
+  "Corn",
+  "Escarole",
+  "Basil",
+  "Cantaloupe",
+  "Peas",
+  "Soybeans",
+  "Tomato",
+  "Red-Leaf Lettuce",
+  // Unique
+  "Horse Apple",
+  "Cotton",
+  "Sugarcane",
+  "Barley",
+  "Pumpkin",
+  "Flax",
+  "Oat Groats",
+  "Tundra Rye",
+  "Evil Pumpkin",
+  "Orcish Wheat",
+  "Treant Apple",
+]);
+
+/**
+ * Build a set of item codes for items that can be grown via Gardening.
+ * Uses two signals:
+ *  1. Any Gardening-skill recipe that produces the item (via byResultItem).
+ *  2. The item's name matches a known garden crop from the wiki.
+ */
+export function buildGardenItemSet(
+  recipeIndexes: RecipeIndexes | null,
+  items: Item[]
+): Set<number> {
+  const gardenCodes = new Set<number>();
+
+  // 1. Items produced by Gardening recipes
+  if (recipeIndexes) {
+    for (const [itemCode, recipes] of recipeIndexes.byResultItem) {
+      if (recipes.some((r) => r.Skill === "Gardening")) {
+        gardenCodes.add(itemCode);
+      }
+    }
+  }
+
+  // 2. Match item names against the known garden crop list
+  for (const item of items) {
+    if (!GARDEN_CROP_NAMES.has(item.Name)) continue;
+    const m = item.id.match(/(\d+)$/);
+    if (m) gardenCodes.add(parseInt(m[1], 10));
+  }
+
+  return gardenCodes;
+}
+
 // ─── Gathering route builder ────────────────────────────────────────────────
 
 const ON_PERSON_VAULT = "__on_person__";

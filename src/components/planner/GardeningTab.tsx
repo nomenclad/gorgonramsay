@@ -1,15 +1,16 @@
 import { useInventoryStore } from "../../stores/inventoryStore";
-import type { CraftingStep } from "./plannerUtils";
+import type { CraftingStep, StillNeededItem } from "./plannerUtils";
 
 interface Props {
   gardeningSteps: CraftingStep[];
   gardeningZone: string;
+  gardenNeeded?: StillNeededItem[];
 }
 
-export function GardeningTab({ gardeningSteps, gardeningZone }: Props) {
+export function GardeningTab({ gardeningSteps, gardeningZone, gardenNeeded = [] }: Props) {
   const getItemQuantity = useInventoryStore((s) => s.getItemQuantity);
 
-  if (gardeningSteps.length === 0) {
+  if (gardeningSteps.length === 0 && gardenNeeded.length === 0) {
     return (
       <div className="text-center py-8 text-text-muted text-sm">
         No gardening is needed for the planned recipes.
@@ -76,30 +77,50 @@ export function GardeningTab({ gardeningSteps, gardeningZone }: Props) {
       ))}
 
       {/* Totals summary */}
-      <div className="bg-bg-secondary rounded-lg p-3 border border-border">
-        <div className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">
-          Total Gardening Materials Needed
+      {gardeningSteps.length > 0 && (
+        <div className="bg-bg-secondary rounded-lg p-3 border border-border">
+          <div className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">
+            Total Gardening Materials Needed
+          </div>
+          <div className="space-y-1">
+            {Array.from(totals.entries())
+              .sort((a, b) => a[1].itemName.localeCompare(b[1].itemName))
+              .map(([itemCode, { itemName, needed }]) => {
+                const have = getItemQuantity(itemCode);
+                const shortfall = Math.max(0, needed - have);
+                return (
+                  <div key={itemCode} className="flex items-center gap-2 text-xs">
+                    <span className={`font-medium w-10 text-right ${shortfall > 0 ? "text-error" : "text-success"}`}>
+                      ×{needed}
+                    </span>
+                    <span className="text-text-primary">{itemName}</span>
+                    <span className="text-text-muted ml-auto">
+                      {shortfall > 0 ? `need ${shortfall} more` : "have enough"}
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
         </div>
-        <div className="space-y-1">
-          {Array.from(totals.entries())
-            .sort((a, b) => a[1].itemName.localeCompare(b[1].itemName))
-            .map(([itemCode, { itemName, needed }]) => {
-              const have = getItemQuantity(itemCode);
-              const shortfall = Math.max(0, needed - have);
-              return (
-                <div key={itemCode} className="flex items-center gap-2 text-xs">
-                  <span className={`font-medium w-10 text-right ${shortfall > 0 ? "text-error" : "text-success"}`}>
-                    ×{needed}
-                  </span>
-                  <span className="text-text-primary">{itemName}</span>
-                  <span className="text-text-muted ml-auto">
-                    {shortfall > 0 ? `need ${shortfall} more` : "have enough"}
-                  </span>
-                </div>
-              );
-            })}
+      )}
+
+      {/* Growable items — not from a specific Gardening recipe but identified as garden crops */}
+      {gardenNeeded.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+            Grow from Seeds
+          </div>
+          <p className="text-xs text-text-muted">
+            These items can be grown in your garden{gardeningZone ? ` in ${gardeningZone}` : ""}. Purchase seeds from a Gardening vendor and plant them.
+          </p>
+          {gardenNeeded.map((item) => (
+            <div key={item.itemCode} className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 py-2 border border-border">
+              <span className="text-error font-medium text-sm shrink-0">×{item.shortfall}</span>
+              <span className="text-text-primary text-sm font-medium">{item.itemName}</span>
+            </div>
+          ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }
