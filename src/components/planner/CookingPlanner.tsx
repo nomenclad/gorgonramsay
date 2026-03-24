@@ -39,6 +39,7 @@ export function CookingPlannerPage() {
   const recipeIndexes = useGameDataStore((s) => s.recipeIndexes);
   const getItemByCode = useGameDataStore((s) => s.getItemByCode);
   const loaded = useGameDataStore((s) => s.loaded);
+  const sourcesLoaded = useGameDataStore((s) => s.sourcesLoaded);
   const fmtVault = useGameDataStore((s) => s.formatVaultName);
 
   const getItemQuantity = useInventoryStore((s) => s.getItemQuantity);
@@ -120,7 +121,7 @@ export function CookingPlannerPage() {
     const purchaseSet = new Set(purchaseNeeded.map((i) => i.itemCode));
     const forageNeeded = nonGarden.filter((i) => !purchaseSet.has(i.itemCode));
     return { gardenNeeded, purchaseNeeded, forageNeeded };
-  }, [gatheringRoute.stillNeeded, gardenItemSet]);
+  }, [gatheringRoute.stillNeeded, gardenItemSet, sourcesLoaded]);
 
   const entryCount = Object.keys(entries).length;
 

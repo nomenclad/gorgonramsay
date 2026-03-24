@@ -5,7 +5,7 @@
 
 import { getVaultZone } from "../../lib/vaultResolver";
 import { getAcquisitionMethods, type AcquisitionMethod } from "../../lib/sourceResolver";
-import { FOOD_SKILLS, MERGED_FISHING } from "../../lib/foodSkills";
+import { FOOD_SKILLS, CRAFT_SKILLS, MERGED_FISHING } from "../../lib/foodSkills";
 import type { RecipeIndexes } from "../../stores/gameDataStore";
 import type { Item } from "../../types/item";
 
@@ -151,7 +151,7 @@ export function resolveIngredients(
     }
 
     const craftRecipe = recipeIndexes
-      ? (recipeIndexes.byResultItem.get(itemCode) ?? []).find((r) => FOOD_SKILLS.has(r.Skill))
+      ? (recipeIndexes.byResultItem.get(itemCode) ?? []).find((r) => CRAFT_SKILLS.has(r.Skill))
       : null;
 
     if (!craftRecipe || visited.has(itemCode) || depth >= MAX_CRAFT_DEPTH) {
