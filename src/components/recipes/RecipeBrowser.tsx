@@ -14,7 +14,7 @@ import { useColumnFilters } from "../../hooks/useColumnFilters";
 import { ResizableTh, SortableResizableTh } from "../common/ResizableTh";
 import { Pagination } from "../common/Pagination";
 
-type KnowledgeFilter = "all" | "known" | "unknown" | "canlearn" | "toolow" | "starred";
+type KnowledgeFilter = "all" | "known" | "unknown" | "firstcraft" | "canlearn" | "toolow" | "starred";
 type SortKey = "name" | "type" | "skill" | "level" | "xp" | "effXp" | "dropoff";
 type SortDir = "asc" | "desc";
 type FoodCategory = "all" | "meal" | "snack";
@@ -122,6 +122,13 @@ export function RecipeBrowser() {
     [visibleRecipes, knownRecipes]
   );
 
+  const firstCraftCount = useMemo(
+    () => visibleRecipes.filter(
+      (r) => knownRecipes.has(r.InternalName) && (character?.RecipeCompletions[r.InternalName] ?? 0) === 0
+    ).length,
+    [visibleRecipes, knownRecipes, character]
+  );
+
   const canLearnCount = useMemo(
     () => visibleRecipes.filter(
       (r) => !knownRecipes.has(r.InternalName) && (character?.Skills[r.Skill]?.Level ?? 0) >= r.SkillLevelReq
@@ -169,6 +176,10 @@ export function RecipeBrowser() {
       results = results.filter((r) => knownRecipes.has(r.InternalName));
     } else if (knowledgeFilter === "unknown") {
       results = results.filter((r) => !knownRecipes.has(r.InternalName));
+    } else if (knowledgeFilter === "firstcraft") {
+      results = results.filter(
+        (r) => knownRecipes.has(r.InternalName) && (character?.RecipeCompletions[r.InternalName] ?? 0) === 0
+      );
     } else if (knowledgeFilter === "canlearn") {
       results = results.filter(
         (r) => !knownRecipes.has(r.InternalName) && (character?.Skills[r.Skill]?.Level ?? 0) >= r.SkillLevelReq
@@ -271,6 +282,7 @@ export function RecipeBrowser() {
     { key: "starred", label: "★ Queued", count: starredCount },
     { key: "known", label: "Known", count: character ? knownCount : null },
     { key: "unknown", label: "Unknown", count: character ? unknownCount : null },
+    { key: "firstcraft", label: "First Craft", count: character ? firstCraftCount : null },
     { key: "canlearn", label: "Can Learn", count: character ? canLearnCount : null },
     { key: "toolow", label: "Too Low", count: character ? tooLowCount : null },
   ];
