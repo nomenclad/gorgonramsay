@@ -30,6 +30,7 @@ interface Props {
   cookingSteps: CraftingStep[];
   plannedRecipes: { recipe: Recipe; quantity: number }[];
   stillNeeded: StillNeededItem[];
+  gardenNeeded?: StillNeededItem[];
   gardeningZone: string;
   cookingZone: string;
 }
@@ -62,6 +63,7 @@ export function RouteTab({
   cookingSteps,
   plannedRecipes,
   stillNeeded,
+  gardenNeeded = [],
   gardeningZone,
   cookingZone,
 }: Props) {
@@ -141,16 +143,24 @@ export function RouteTab({
     }
 
     // 4. Gardening steps (in gardening zone)
-    if (gardeningSteps.length > 0 && gardeningZone) {
+    if ((gardeningSteps.length > 0 || gardenNeeded.length > 0) && gardeningZone) {
       const actions = getOrCreate(gardeningZone);
-      actions.push({
-        type: "garden",
-        label: ACTION_LABELS.garden,
-        items: gardeningSteps.map((s) => ({
+      const gardenItems = [
+        ...gardeningSteps.map((s) => ({
           name: s.resultItemName,
           qty: s.runs * s.resultQty,
           detail: `${s.runs} batch${s.runs !== 1 ? "es" : ""}`,
         })),
+        ...gardenNeeded.map((i) => ({
+          name: i.itemName,
+          qty: i.shortfall,
+          detail: "grow from seeds",
+        })),
+      ];
+      actions.push({
+        type: "garden",
+        label: ACTION_LABELS.garden,
+        items: gardenItems,
       });
     }
 
@@ -232,6 +242,7 @@ export function RouteTab({
     cookingSteps,
     plannedRecipes,
     stillNeeded,
+    gardenNeeded,
     gardeningZone,
     cookingZone,
     completions,

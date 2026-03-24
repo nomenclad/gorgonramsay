@@ -199,6 +199,51 @@ export function buildRawMaterials(
     .sort((a, b) => b.needed - a.needed || a.itemName.localeCompare(b.itemName));
 }
 
+// ─── Garden item identification ─────────────────────────────────────────────
+
+/**
+ * Build a set of item codes for items that can be grown via Gardening.
+ * Uses two signals:
+ *  1. Any Gardening-skill recipe that produces the item (via byResultItem).
+ *  2. A matching seed item exists (e.g. "Carrot Seeds" → Carrot is growable).
+ */
+export function buildGardenItemSet(
+  recipeIndexes: RecipeIndexes | null,
+  items: Item[]
+): Set<number> {
+  const gardenCodes = new Set<number>();
+
+  // 1. Items produced by Gardening recipes
+  if (recipeIndexes) {
+    for (const [itemCode, recipes] of recipeIndexes.byResultItem) {
+      if (recipes.some((r) => r.Skill === "Gardening")) {
+        gardenCodes.add(itemCode);
+      }
+    }
+  }
+
+  // 2. Items that have a corresponding seed item (e.g. "Carrot Seeds" → "Carrot")
+  // Build a name→code lookup for all items
+  const nameToCode = new Map<string, number>();
+  for (const item of items) {
+    const m = item.id.match(/(\d+)$/);
+    if (m) nameToCode.set(item.Name.toLowerCase(), parseInt(m[1], 10));
+  }
+
+  for (const item of items) {
+    // Match patterns like "Carrot Seeds", "Beet Seed", "Potato Eyes"
+    const seedMatch = item.Name.match(/^(.+?)\s+(?:Seeds?|Eyes|Cuttings?)$/i);
+    if (!seedMatch) continue;
+    const cropName = seedMatch[1].toLowerCase();
+    const cropCode = nameToCode.get(cropName);
+    if (cropCode != null) {
+      gardenCodes.add(cropCode);
+    }
+  }
+
+  return gardenCodes;
+}
+
 // ─── Gathering route builder ────────────────────────────────────────────────
 
 const ON_PERSON_VAULT = "__on_person__";
