@@ -23,4 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 dist-web
-dist-web
+
+# CDN data fetched at build time
+public/cdn-data
