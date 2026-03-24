@@ -214,7 +214,7 @@ function NodeCard({
           <div
             className={`text-[10px] font-medium ${isLeaf ? "text-success" : "text-accent"}`}
           >
-            {isLeaf ? "Raw Material" : `${formatSkillName(node.skill)} Lv ${node.levelReq}`}
+            {isLeaf ? "Raw Material" : `${formatSkillName(node.skill ?? "")} Lv ${node.levelReq}`}
           </div>
           <div
             className={`text-[10px] ${

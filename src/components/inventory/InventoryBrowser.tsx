@@ -10,7 +10,7 @@ import { IngredientDetailModal } from "./IngredientDetailModal";
 import type { AggregatedItem } from "../../types";
 import { useResizableColumns } from "../../hooks/useResizableColumns";
 import { useColumnFilters } from "../../hooks/useColumnFilters";
-import { ResizableTh, SortableResizableTh, FilterableResizableTh } from "../common/ResizableTh";
+import { ResizableTh, SortableResizableTh } from "../common/ResizableTh";
 import { Pagination } from "../common/Pagination";
 
 type SortKey = "name" | "acquisition" | "qty" | "value" | "totalValue" | "recipes";
@@ -442,7 +442,7 @@ export function InventoryBrowser() {
                                 </span>
                               )
                             ) : (
-                              <span className="text-text-muted capitalize">{m.kind}</span>
+                              <span className="text-text-muted capitalize">{(m as { kind: string }).kind}</span>
                             )}
                           </div>
                         ))}

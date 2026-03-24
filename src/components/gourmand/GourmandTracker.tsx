@@ -40,7 +40,6 @@ export function GourmandTracker() {
   const starRecipe = usePlannerStore((s) => s.starRecipe);
   const unstarRecipe = usePlannerStore((s) => s.unstarRecipe);
   const setRecipeQty = usePlannerStore((s) => s.setQuantity);
-  const plannerCount = Object.keys(plannerEntries).length;
   const [ingCtxMenu, setIngCtxMenu] = useState<{ x: number; y: number; name: string } | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; name: string; isCrafted?: boolean } | null>(null);
   const handleContextMenu = useCallback((e: React.MouseEvent, name: string, isCrafted: boolean) => {
@@ -223,11 +222,6 @@ export function GourmandTracker() {
     [preStatusFiltered, canCraftLabel]
   );
   const eatenOptions = ["Yes", "No"];
-  const foodTypeOptions = useMemo(
-    () => [...new Set(preStatusFiltered.map((f) => f.foodType))].sort(),
-    [preStatusFiltered]
-  );
-
   const getFoodSkill = useCallback((food: FoodItem): string => {
     const recipe = recipeByName.get(food.internalName);
     return recipe ? formatSkillName(recipe.Skill) : "—";
