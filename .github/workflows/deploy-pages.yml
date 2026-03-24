@@ -27,6 +27,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Fetch CDN data for static hosting
+        run: node scripts/fetch-cdn-data.mjs
+
       - run: npm run build:web
 
       - uses: actions/upload-pages-artifact@v3
