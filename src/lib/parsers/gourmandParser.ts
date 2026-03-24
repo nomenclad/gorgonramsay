@@ -1,65 +1,82 @@
 /**
- * Parse itemuses.json to extract Gourmand food data.
- * itemuses.json maps item IDs to usage effects including Gourmand XP bonuses.
+ * Derive Gourmand food data from items.json and xptables.json.
+ *
+ * Gourmand XP is awarded the first time a player eats a food item.
+ * - Food items have a `FoodDesc` field like "Level 20 Meal" or "Level 0 Snack".
+ * - The XP amount for a food at food-level N is xpTable.XpAmounts[N]
+ *   from the table with InternalName "Gourmand" (Table_12).
+ * - Eaten status is tracked in CharacterSheet.RecipeCompletions keyed by the
+ *   food item's InternalName (e.g. "GoblinBread"), NOT "EatItem:xxx".
  */
+
+import type { Item } from "../../types/item";
+import type { XpTable } from "../../types/xpTable";
 
 export interface FoodItem {
   itemCode: number;
+  internalName: string;
   itemName: string;
+  iconId?: number;
   gourmandXp: number;
+  foodLevel: number;
+  foodType: string; // "Meal", "Snack", "Instant-Snack", etc.
   effects: string[];
+  /**
+   * True when a crafting recipe shares this food's InternalName.
+   * Only for these foods can eaten status be reliably inferred from
+   * RecipeCompletions. Raw/foraged foods with no recipe cannot be tracked.
+   */
+  hasTracking: boolean;
 }
 
-interface RawItemUse {
-  InternalName?: string;
-  Verb?: string;
-  Requirements?: string[];
-  Effects?: string[];
-}
-
-interface RawItemUseData {
-  [itemId: string]: RawItemUse | RawItemUse[];
+/** Extract the numeric level and type label from FoodDesc (e.g. "Level 20 Meal" → {level:20, type:"Meal"}). */
+function parseFoodDesc(foodDesc: string): { level: number; type: string } | null {
+  const m = foodDesc.match(/Level\s+(\d+)\s+(.*)/i);
+  if (!m) return null;
+  return { level: parseInt(m[1], 10), type: m[2].trim() };
 }
 
 export function parseGourmandFoods(
-  itemUsesJson: string,
-  getItemByCode: (code: number) => { Name: string } | undefined
+  items: Item[],
+  xpTables: XpTable[],
+  recipeInternalNames?: Set<string>
 ): FoodItem[] {
-  const raw: RawItemUseData = JSON.parse(itemUsesJson);
+  // Find the Gourmand XP table
+  const gourmandTable = xpTables.find((t) => t.InternalName === "Gourmand");
+  if (!gourmandTable) return [];
+
   const foods: FoodItem[] = [];
 
-  for (const [itemId, uses] of Object.entries(raw)) {
-    const usesArray = Array.isArray(uses) ? uses : [uses];
-    const itemCode = parseInt(itemId.replace("item_", ""), 10);
-    if (isNaN(itemCode)) continue;
+  for (const item of items) {
+    if (!item.FoodDesc) continue;
 
-    let gourmandXp = 0;
-    const allEffects: string[] = [];
+    const parsed = parseFoodDesc(item.FoodDesc);
+    if (!parsed) continue;
 
-    for (const use of usesArray) {
-      const effects = use.Effects ?? [];
-      for (const effect of effects) {
-        // Look for Gourmand XP effects
-        if (effect.includes("SKILL_GOURMAND") || effect.includes("Gourmand")) {
-          const match = effect.match(/(\d+)/);
-          if (match) {
-            gourmandXp = Math.max(gourmandXp, parseInt(match[1], 10));
-          }
-        }
-        allEffects.push(effect);
-      }
-    }
+    const { level, type } = parsed;
 
-    if (gourmandXp > 0) {
-      const item = getItemByCode(itemCode);
-      foods.push({
-        itemCode,
-        itemName: item?.Name ?? `Item #${itemCode}`,
-        gourmandXp,
-        effects: allEffects,
-      });
-    }
+    // Look up XP — clamp to table bounds
+    const xpIndex = Math.min(level, gourmandTable.XpAmounts.length - 1);
+    const gourmandXp = gourmandTable.XpAmounts[xpIndex] ?? 0;
+
+    // Derive numeric item code from id string ("item_1234" → 1234)
+    const codeMatch = item.id.match(/(\d+)$/);
+    const itemCode = codeMatch ? parseInt(codeMatch[1], 10) : 0;
+
+    foods.push({
+      itemCode,
+      internalName: item.InternalName,
+      itemName: item.Name,
+      iconId: item.IconId,
+      gourmandXp,
+      foodLevel: level,
+      foodType: type,
+      effects: item.EffectDescs ?? [],
+      hasTracking: recipeInternalNames
+        ? recipeInternalNames.has(item.InternalName)
+        : false,
+    });
   }
 
-  return foods.sort((a, b) => b.gourmandXp - a.gourmandXp);
+  return foods.sort((a, b) => b.foodLevel - a.foodLevel || a.itemName.localeCompare(b.itemName));
 }

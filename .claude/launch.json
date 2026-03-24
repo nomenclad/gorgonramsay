@@ -2,16 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "Vite Dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 5173
-    },
-    {
-      "name": "Tauri Dev",
-      "runtimeExecutable": "/bin/sh",
-      "runtimeArgs": ["-c", "PATH=\"$HOME/.cargo/bin:$PATH\" npm run tauri dev"],
-      "port": 5173
+      "name": "web-debug",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "BUILD_TARGET=web npx vite --port 5174"],
+      "port": 5174
     }
   ]
 }

@@ -26,10 +26,19 @@ interface RawRecipeData {
 
 export function parseRecipes(json: string): Recipe[] {
   const raw: Record<string, RawRecipeData> = JSON.parse(json);
-  return Object.entries(raw).map(([key, data]) => ({
-    id: key,
-    ...data,
-  }));
+  return Object.entries(raw)
+    .filter(([, data]) => data && typeof data === "object" && data.Name)
+    .map(([key, data]) => ({
+      id: key,
+      ...data,
+      // Filter out any ingredients/results with missing ItemCodes (malformed entries)
+      Ingredients: (data.Ingredients ?? []).filter(
+        (ing) => ing.ItemCode != null && !isNaN(Number(ing.ItemCode))
+      ),
+      ResultItems: (data.ResultItems ?? []).filter(
+        (res) => res.ItemCode != null && !isNaN(Number(res.ItemCode))
+      ),
+    }));
 }
 
 export interface RecipeIndexes {

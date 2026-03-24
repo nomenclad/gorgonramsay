@@ -9,13 +9,13 @@ export function Header() {
 
   return (
     <header className="bg-bg-secondary border-b border-border px-4 py-3">
-      <div className="max-w-screen-xl mx-auto flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold text-text-primary">
-            PG Efficiency
+            Gorgon Ramsay
           </h1>
           <span className="text-xs text-text-muted">
-            Project Gorgon Skill Optimizer
+            A Culinary Guide to Alharth
           </span>
         </div>
 

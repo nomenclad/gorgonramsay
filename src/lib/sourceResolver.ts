@@ -1,4 +1,4 @@
-import type { SourcesData, SourceEntry } from "../types";
+import type { SourcesData } from "../types";
 
 export type AcquisitionMethod =
   | { kind: "inventory"; quantity: number }
@@ -11,16 +11,122 @@ export type AcquisitionMethod =
   | { kind: "other"; description: string };
 
 let sourcesData: SourcesData | null = null;
+let recipeSourcesData: SourcesData | null = null;
 let npcNames: Map<string, { name: string; area?: string }> = new Map();
 
 export function loadSourcesData(data: SourcesData): void {
   sourcesData = data;
 }
 
+export function loadRecipeSourcesData(data: SourcesData): void {
+  recipeSourcesData = data;
+}
+
 export function loadNpcNames(
   map: Map<string, { name: string; area?: string }>
 ): void {
   npcNames = map;
+}
+
+/** Get NPC display info for a given npc ID string. */
+export function getNpcInfo(npcId: string): { name: string; area?: string } {
+  return npcNames.get(npcId) ?? { name: formatNpcId(npcId) };
+}
+
+export interface RecipeSourceLabel {
+  kind: "trainer" | "scroll" | "skill" | "quest" | "hangout" | "gift" | "other";
+  label: string;
+  detail?: string; // area, item name, etc.
+}
+
+/**
+ * Get human-readable source labels for where a recipe can be learned.
+ * recipeId should match Recipe.id (e.g. "recipe_1").
+ */
+export function getRecipeSourceLabels(
+  recipeId: string,
+  getItemByCode: (code: number) => { Name: string } | undefined
+): RecipeSourceLabel[] {
+  if (!recipeSourcesData) return [];
+  const entry = recipeSourcesData[recipeId];
+  if (!entry) return [];
+
+  const labels: RecipeSourceLabel[] = [];
+  const seen = new Set<string>();
+
+  for (const src of entry.entries) {
+    switch (src.type) {
+      case "Training": {
+        if (!src.npc) break;
+        const npc = getNpcInfo(src.npc);
+        const key = `trainer:${src.npc}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          labels.push({ kind: "trainer", label: npc.name, detail: npc.area });
+        }
+        break;
+      }
+      case "Item": {
+        if (src.itemTypeId == null) break;
+        const item = getItemByCode(src.itemTypeId);
+        const key = `scroll:${src.itemTypeId}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          labels.push({
+            kind: "scroll",
+            label: item?.Name ?? `Item #${src.itemTypeId}`,
+          });
+        }
+        break;
+      }
+      case "Skill": {
+        const key = `skill:${src.skill ?? "?"}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          labels.push({
+            kind: "skill",
+            label: src.skill ?? "Skill progression",
+          });
+        }
+        break;
+      }
+      case "Quest": {
+        const key = `quest:${src.questId ?? "?"}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          labels.push({ kind: "quest", label: "Quest reward" });
+        }
+        break;
+      }
+      case "HangOut": {
+        if (!src.npc) break;
+        const npc = getNpcInfo(src.npc);
+        const key = `hangout:${src.npc}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          labels.push({ kind: "hangout", label: npc.name, detail: npc.area });
+        }
+        break;
+      }
+      case "NpcGift": {
+        if (!src.npc) break;
+        const npc = getNpcInfo(src.npc);
+        const key = `gift:${src.npc}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          labels.push({ kind: "gift", label: npc.name, detail: npc.area });
+        }
+        break;
+      }
+      default:
+        if (!seen.has("other")) {
+          seen.add("other");
+          labels.push({ kind: "other", label: "Special unlock" });
+        }
+    }
+  }
+
+  return labels;
 }
 
 /**
@@ -101,6 +207,58 @@ export function getAcquisitionMethods(
     seen.add(key);
     return true;
   });
+}
+
+export interface RecipePurchaseInfo {
+  kind: "trainer" | "scroll";
+  npcName?: string;
+  area?: string;
+  /** Council coin cost — only available for scroll items (item.Value). Trainers cost is not in CDN data. */
+  cost?: number;
+  scrollName?: string;
+  /** Item type ID of the scroll — use getAcquisitionMethods to find where it's sold. */
+  scrollItemTypeId?: number;
+}
+
+/**
+ * Returns purchasable sources for a recipe (trainer NPCs and/or scroll items for sale).
+ * recipeId format: "recipe_123"
+ */
+export function getRecipePurchaseInfo(
+  recipeId: string,
+  getItemByCode: (code: number) => { Name: string; Value: number } | undefined
+): RecipePurchaseInfo[] {
+  if (!recipeSourcesData) return [];
+  const entry = recipeSourcesData[recipeId];
+  if (!entry) return [];
+
+  const results: RecipePurchaseInfo[] = [];
+  const seen = new Set<string>();
+
+  for (const src of entry.entries) {
+    if (src.type === "Training" && src.npc) {
+      const npc = getNpcInfo(src.npc);
+      const key = `trainer:${src.npc}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        results.push({ kind: "trainer", npcName: npc.name, area: npc.area });
+      }
+    } else if (src.type === "Item" && src.itemTypeId != null) {
+      const item = getItemByCode(src.itemTypeId);
+      const key = `scroll:${src.itemTypeId}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        results.push({
+          kind: "scroll",
+          scrollName: item?.Name ?? `Item #${src.itemTypeId}`,
+          cost: item && item.Value > 0 ? item.Value : undefined,
+          scrollItemTypeId: src.itemTypeId,
+        });
+      }
+    }
+  }
+
+  return results;
 }
 
 /**

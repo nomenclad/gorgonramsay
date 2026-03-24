@@ -14,6 +14,8 @@ export type SourceType =
   | "TreasureMap"
   | "ResourceInteractor"
   | "CraftedInteractor"
+  | "Training"
+  | "Skill"
   | "Other";
 
 export interface SourceEntry {
@@ -23,6 +25,7 @@ export interface SourceEntry {
   itemTypeId?: number;
   questId?: number;
   hangOutId?: number;
+  skill?: string;
 }
 
 export interface ItemSources {

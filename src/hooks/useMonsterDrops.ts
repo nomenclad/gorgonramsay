@@ -1,0 +1,44 @@
+import { useState, useEffect } from "react";
+
+export interface DropEntry {
+  monster: string;
+  location: string;
+}
+
+// Module-level cache — loaded once, shared across all consumers
+let _cache: Record<string, DropEntry[]> | null = null;
+let _promise: Promise<Record<string, DropEntry[]>> | null = null;
+
+function fetchDrops(): Promise<Record<string, DropEntry[]>> {
+  if (!_promise) {
+    _promise = fetch("/monster_drops.json")
+      .then((r) => r.json())
+      .then((data) => {
+        _cache = data;
+        return data;
+      })
+      .catch(() => {
+        _promise = null; // allow retry on error
+        return {} as Record<string, DropEntry[]>;
+      });
+  }
+  return _promise;
+}
+
+/**
+ * Returns the scraped wiki drop table for food ingredients.
+ * Keys are item names (e.g. "Grapes"), values are arrays of { monster, location }.
+ */
+export function useMonsterDrops(): Record<string, DropEntry[]> {
+  const [drops, setDrops] = useState<Record<string, DropEntry[]>>(_cache ?? {});
+
+  useEffect(() => {
+    if (_cache) {
+      setDrops(_cache);
+      return;
+    }
+    fetchDrops().then((data) => setDrops(data));
+  }, []);
+
+  return drops;
+}

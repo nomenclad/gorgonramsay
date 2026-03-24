@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { isTauri } from "../../lib/platform";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useCharacterStore } from "../../stores/characterStore";
 import { useInventoryStore } from "../../stores/inventoryStore";
@@ -16,7 +16,6 @@ import {
   loadAllCdnFiles,
   ALL_CDN_FILES,
   type DownloadProgress,
-  type CdnFilename,
 } from "../../lib/cdnLoader";
 import { getCachedVersion } from "../../lib/db";
 
@@ -27,12 +26,35 @@ interface ReportFile {
   file_type: string;
 }
 
+const THEMES = [
+  { id: "default", label: "Night (Default)" },
+  { id: "slate",   label: "Slate" },
+  { id: "midnight",label: "Midnight" },
+  { id: "forest",  label: "Forest" },
+  { id: "warm",    label: "Warm" },
+];
+
+function applyTheme(id: string) {
+  if (id === "default") {
+    document.documentElement.removeAttribute("data-theme");
+  } else {
+    document.documentElement.setAttribute("data-theme", id);
+  }
+  localStorage.setItem("theme", id);
+}
+
 export function SettingsPage() {
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") ?? "default");
   const setRecipes = useGameDataStore((s) => s.setRecipes);
   const setItems = useGameDataStore((s) => s.setItems);
   const setXpTables = useGameDataStore((s) => s.setXpTables);
   const setSources = useGameDataStore((s) => s.setSources);
+  const setRecipeSources = useGameDataStore((s) => s.setRecipeSources);
   const setNpcNames = useGameDataStore((s) => s.setNpcNames);
+  const setItemUsesJson = useGameDataStore((s) => s.setItemUsesJson);
+  const setStorageVaults = useGameDataStore((s) => s.setStorageVaults);
+  const setAreas = useGameDataStore((s) => s.setAreas);
+  const setCdnVersion = useGameDataStore((s) => s.setCdnVersion);
   const setLoading = useGameDataStore((s) => s.setLoading);
   const loading = useGameDataStore((s) => s.loading);
   const loaded = useGameDataStore((s) => s.loaded);
@@ -50,27 +72,115 @@ export function SettingsPage() {
     Map<string, DownloadProgress>
   >(new Map());
   const [isDownloading, setIsDownloading] = useState(false);
+  const [autoWatch, setAutoWatch] = useState(() => localStorage.getItem("autoWatch") === "true");
+  const [autoWatchStatus, setAutoWatchStatus] = useState<string | null>(null);
+
+  // Refs for polling — avoids stale closures inside setInterval
+  const pgPathRef = useRef<string | null>(null);
+  const lastCharTimestampRef = useRef<number>(0);
+  const lastInvTimestampRef = useRef<number>(0);
 
   const addStatus = useCallback(
     (msg: string) => setStatus((prev) => [...prev, msg]),
     []
   );
 
+  // Keep pgPathRef in sync
+  useEffect(() => { pgPathRef.current = pgPath; }, [pgPath]);
+
+  // Persist autoWatch preference
+  useEffect(() => {
+    localStorage.setItem("autoWatch", autoWatch ? "true" : "false");
+  }, [autoWatch]);
+
+  // Silent loaders used by the auto-watch poller (Tauri only)
+  const silentLoadCharacter = useCallback(async (files: ReportFile[]) => {
+    if (!isTauri) return;
+    const charFile = files.find((f) => f.file_type === "character");
+    if (!charFile) return;
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const json = await invoke<string>("read_file_content", { path: charFile.path });
+      const sheet = parseCharacterSheet(json);
+      setCharacter(sheet);
+      setAutoWatchStatus(`Character updated at ${new Date().toLocaleTimeString()}`);
+    } catch { /* silent */ }
+  }, [setCharacter]);
+
+  const silentLoadInventory = useCallback(async (files: ReportFile[]) => {
+    if (!isTauri) return;
+    const invFiles = files
+      .filter((f) => f.file_type === "inventory")
+      .sort((a, b) => b.modified_timestamp - a.modified_timestamp);
+    if (invFiles.length === 0) return;
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const json = await invoke<string>("read_file_content", { path: invFiles[0].path });
+      const inv = parseInventory(json);
+      setInventory(inv.Items, inv.Timestamp, inv.Character);
+      setAutoWatchStatus(`Inventory updated at ${new Date().toLocaleTimeString()}`);
+    } catch { /* silent */ }
+  }, [setInventory]);
+
+  // Auto-watch polling effect — checks every 5s for new/updated report files
+  useEffect(() => {
+    if (!autoWatch || !pgPath) return;
+
+    let isFirstPoll = true;
+
+    const poll = async () => {
+      const path = pgPathRef.current;
+      if (!path) return;
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        const files = await invoke<ReportFile[]>("list_report_files", { reportsPath: path });
+
+        const charFile = files.find((f) => f.file_type === "character");
+        const invFile = files
+          .filter((f) => f.file_type === "inventory")
+          .sort((a, b) => b.modified_timestamp - a.modified_timestamp)[0];
+
+        if (!isFirstPoll) {
+          // Reload character if it changed
+          if (charFile && charFile.modified_timestamp > lastCharTimestampRef.current) {
+            await silentLoadCharacter(files);
+          }
+          // Reload inventory if it changed
+          if (invFile && invFile.modified_timestamp > lastInvTimestampRef.current) {
+            await silentLoadInventory(files);
+          }
+        }
+
+        // Seed / update last-seen timestamps
+        if (charFile) lastCharTimestampRef.current = charFile.modified_timestamp;
+        if (invFile) lastInvTimestampRef.current = invFile.modified_timestamp;
+        isFirstPoll = false;
+      } catch { /* silent — folder may be temporarily inaccessible */ }
+    };
+
+    poll(); // seed timestamps immediately
+    const id = setInterval(poll, 5000);
+    return () => clearInterval(id);
+  }, [autoWatch, pgPath, silentLoadCharacter, silentLoadInventory]);
+
   // Load cached version on mount
   useEffect(() => {
-    getCachedVersion().then((v) => setCachedVersion_(v));
-  }, []);
+    getCachedVersion().then((v) => {
+      setCachedVersion_(v);
+      if (v) setCdnVersion(v);
+    });
+  }, [setCdnVersion]);
 
-  // Detect PG install path on mount
+  // Detect PG install path on mount (Tauri only)
   useEffect(() => {
+    if (!isTauri) return;
     (async () => {
       try {
+        const { invoke } = await import("@tauri-apps/api/core");
         const pg = await invoke<string | null>("detect_pg_path");
         setPgPath(pg);
         if (pg) {
-          const files = await invoke<ReportFile[]>("list_report_files", {
-            reportsPath: pg,
-          });
+          const files = await invoke<ReportFile[]>("list_report_files", { reportsPath: pg });
           setReportFiles(files);
         }
       } catch {
@@ -104,13 +214,30 @@ export function SettingsPage() {
         setSources(sources);
         addStatus(`✓ Item sources loaded`);
       }
+      if (files["sources_recipes.json"]) {
+        const sources = parseSourcesData(files["sources_recipes.json"]);
+        setRecipeSources(sources);
+        addStatus(`✓ Recipe sources loaded`);
+      }
       if (files["npcs.json"]) {
         const npcMap = parseNpcNames(files["npcs.json"]);
         setNpcNames(npcMap);
         addStatus(`✓ ${npcMap.size} NPCs loaded`);
       }
+      if (files["itemuses.json"]) {
+        setItemUsesJson(files["itemuses.json"]);
+        addStatus(`✓ Item uses (Gourmand) loaded`);
+      }
+      if (files["storagevaults.json"]) {
+        setStorageVaults(files["storagevaults.json"]);
+        addStatus(`✓ Storage vault names loaded`);
+      }
+      if (files["areas.json"]) {
+        setAreas(files["areas.json"]);
+        addStatus(`✓ Area names loaded`);
+      }
     },
-    [setRecipes, setItems, setXpTables, setSources, setNpcNames, addStatus]
+    [setRecipes, setItems, setXpTables, setSources, setRecipeSources, setNpcNames, setItemUsesJson, setStorageVaults, setAreas, addStatus]
   );
 
   const downloadFromCdn = useCallback(
@@ -139,6 +266,7 @@ export function SettingsPage() {
         }, forceRefresh);
 
         setCachedVersion_(result.version);
+        setCdnVersion(result.version);
         addStatus(`✓ CDN version v${result.version}`);
         applyCdnFiles(result.files);
         addStatus("✓ All game data ready!");
@@ -154,21 +282,13 @@ export function SettingsPage() {
 
   const loadCharacter = useCallback(async () => {
     const charFile = reportFiles.find((f) => f.file_type === "character");
-    if (!charFile) {
-      addStatus("No character file found");
-      return;
-    }
+    if (!charFile) { addStatus("No character file found"); return; }
     try {
-      const json = await invoke<string>("read_file_content", {
-        path: charFile.path,
-      });
+      const { invoke } = await import("@tauri-apps/api/core");
+      const json = await invoke<string>("read_file_content", { path: charFile.path });
       const sheet = parseCharacterSheet(json);
       setCharacter(sheet);
-      addStatus(
-        `✓ Character loaded: ${sheet.Character} @ ${sheet.ServerName} — ${
-          Object.keys(sheet.Skills).length
-        } skills`
-      );
+      addStatus(`✓ Character loaded: ${sheet.Character} @ ${sheet.ServerName} — ${Object.keys(sheet.Skills).length} skills`);
     } catch (e) {
       addStatus(`✗ Error loading character: ${e}`);
     }
@@ -178,19 +298,13 @@ export function SettingsPage() {
     const invFiles = reportFiles
       .filter((f) => f.file_type === "inventory")
       .sort((a, b) => b.modified_timestamp - a.modified_timestamp);
-    if (invFiles.length === 0) {
-      addStatus("No inventory files found");
-      return;
-    }
+    if (invFiles.length === 0) { addStatus("No inventory files found"); return; }
     try {
-      const json = await invoke<string>("read_file_content", {
-        path: invFiles[0].path,
-      });
+      const { invoke } = await import("@tauri-apps/api/core");
+      const json = await invoke<string>("read_file_content", { path: invFiles[0].path });
       const inv = parseInventory(json);
       setInventory(inv.Items, inv.Timestamp, inv.Character);
-      addStatus(
-        `✓ Inventory loaded: ${inv.Items.length} items from "${invFiles[0].filename}"`
-      );
+      addStatus(`✓ Inventory loaded: ${inv.Items.length} items from "${invFiles[0].filename}"`);
     } catch (e) {
       addStatus(`✗ Error loading inventory: ${e}`);
     }
@@ -234,16 +348,23 @@ export function SettingsPage() {
           const inv = parseInventory(text);
           setInventory(inv.Items, inv.Timestamp, inv.Character);
           addStatus(`✓ ${inv.Items.length} inventory items loaded (drag-drop)`);
+        } else if (file.name === "sources_recipes.json") {
+          const sources = parseSourcesData(text);
+          setRecipeSources(sources);
+          addStatus(`✓ Recipe sources loaded (drag-drop)`);
+        } else if (file.name === "itemuses.json") {
+          setItemUsesJson(text);
+          addStatus(`✓ Item uses (Gourmand) loaded (drag-drop)`);
         } else {
           addStatus(`? Unrecognized file: ${file.name}`);
         }
       }
     },
-    [addStatus, setRecipes, setItems, setXpTables, setSources, setNpcNames, setCharacter, setInventory]
+    [addStatus, setRecipes, setItems, setXpTables, setSources, setRecipeSources, setNpcNames, setItemUsesJson, setCharacter, setInventory]
   );
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 w-full">
       <h2 className="text-xl font-semibold">Settings & Data Import</h2>
 
       {/* CDN Download */}
@@ -302,11 +423,35 @@ export function SettingsPage() {
       {/* Character & Inventory */}
       <section className="bg-bg-secondary rounded-lg p-4 space-y-3">
         <h3 className="font-medium text-sm">Character & Inventory</h3>
-        <p className="text-xs text-text-muted">
-          {pgPath
-            ? `Auto-detected PG install at: ${pgPath}`
-            : "PG install not auto-detected — drag your character and inventory files below."}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-xs text-text-muted flex-1">
+            {pgPath
+              ? `Reports folder: ${pgPath}`
+              : "PG install not auto-detected."}
+          </p>
+          {isTauri ? (
+            <button
+              onClick={async () => {
+                const { open: openDialog } = await import("@tauri-apps/plugin-dialog");
+                const { invoke } = await import("@tauri-apps/api/core");
+                const selected = await openDialog({ directory: true, multiple: false, title: "Select PG Reports Folder" });
+                if (!selected) return;
+                const folder = typeof selected === "string" ? selected : selected;
+                setPgPath(folder);
+                try {
+                  const files = await invoke<ReportFile[]>("list_report_files", { reportsPath: folder });
+                  setReportFiles(files);
+                  addStatus(`✓ Found ${files.length} report files`);
+                } catch (e) {
+                  addStatus(`✗ Error reading folder: ${e}`);
+                }
+              }}
+              className="shrink-0 border border-border hover:border-accent text-text-secondary hover:text-text-primary px-3 py-1.5 rounded text-xs transition-colors"
+            >
+              Browse…
+            </button>
+          ) : null}
+        </div>
         {reportFiles.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {reportFiles.some((f) => f.file_type === "character") && (
@@ -342,7 +487,100 @@ export function SettingsPage() {
               ))}
           </div>
         )}
+
+        {/* Auto-watch toggle */}
+        {pgPath && (
+          <div className="flex items-center justify-between pt-2 mt-1 border-t border-border/40">
+            <div>
+              <div className="text-sm text-text-primary">Auto-watch</div>
+              <div className="text-xs text-text-muted">
+                {autoWatch
+                  ? autoWatchStatus ?? "Watching for new exports…"
+                  : "Automatically reload when new reports appear"}
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setAutoWatch((v) => !v);
+                if (!autoWatch) setAutoWatchStatus(null);
+              }}
+              role="switch"
+              aria-checked={autoWatch}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                autoWatch ? "bg-accent" : "bg-bg-primary border border-border"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  autoWatch ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        )}
       </section>
+
+      {/* Character & Inventory upload — web mode shows file inputs, Tauri uses native picker */}
+      {!isTauri && (
+        <section className="bg-bg-secondary rounded-lg p-4 space-y-3">
+          <h3 className="font-medium text-sm">Upload Character & Inventory</h3>
+          <p className="text-xs text-text-muted">
+            Export your character and inventory from Project Gorgon (F1 → Reports → Export),
+            then upload the JSON files here.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <label className="flex flex-col gap-1 cursor-pointer">
+              <span className="text-xs text-text-muted">Character file (Character_*.json)</span>
+              <input
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    const text = await file.text();
+                    const sheet = parseCharacterSheet(text);
+                    setCharacter(sheet);
+                    addStatus(`✓ Character loaded: ${sheet.Character} @ ${sheet.ServerName}`);
+                  } catch (err) {
+                    addStatus(`✗ Failed to parse character: ${err}`);
+                  }
+                  e.target.value = "";
+                }}
+              />
+              <span className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-sm text-center transition-colors">
+                {character ? "↻ Reload Character" : "Choose Character File"}
+              </span>
+            </label>
+
+            <label className="flex flex-col gap-1 cursor-pointer">
+              <span className="text-xs text-text-muted">Inventory file (*_items_*.json)</span>
+              <input
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    const text = await file.text();
+                    const inv = parseInventory(text);
+                    setInventory(inv.Items, inv.Timestamp, inv.Character);
+                    addStatus(`✓ Inventory loaded: ${inv.Items.length} items`);
+                  } catch (err) {
+                    addStatus(`✗ Failed to parse inventory: ${err}`);
+                  }
+                  e.target.value = "";
+                }}
+              />
+              <span className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-sm text-center transition-colors">
+                {inventoryTimestamp ? "↻ Reload Inventory" : "Choose Inventory File"}
+              </span>
+            </label>
+          </div>
+        </section>
+      )}
 
       {/* Drag-and-drop fallback */}
       <section
@@ -389,6 +627,26 @@ export function SettingsPage() {
           </div>
         </section>
       )}
+
+      {/* Theme */}
+      <section className="bg-bg-secondary rounded-lg p-4">
+        <h3 className="font-medium text-sm mb-3">Appearance</h3>
+        <div className="flex items-center gap-3">
+          <label className="text-sm text-text-muted">Theme</label>
+          <select
+            value={theme}
+            onChange={(e) => {
+              setTheme(e.target.value);
+              applyTheme(e.target.value);
+            }}
+            className="bg-bg-primary border border-border rounded px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent"
+          >
+            {THEMES.map((t) => (
+              <option key={t.id} value={t.id}>{t.label}</option>
+            ))}
+          </select>
+        </div>
+      </section>
 
       {/* Current state */}
       <section className="bg-bg-secondary rounded-lg p-4">

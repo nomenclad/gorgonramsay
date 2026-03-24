@@ -1,17 +1,49 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { OptimizerResult, LevelingStep, MissingIngredient } from "../../types/optimizer";
 import type { Item } from "../../types";
-import { getAcquisitionMethods } from "../../lib/sourceResolver";
+import {
+  getAcquisitionMethods,
+  getRecipeSourceLabels,
+  type RecipeSourceLabel,
+} from "../../lib/sourceResolver";
 import { useInventoryStore } from "../../stores/inventoryStore";
+import { useCharacterStore } from "../../stores/characterStore";
+import { ItemTooltip } from "../common/ItemTooltip";
 
 interface Props {
   result: OptimizerResult;
   getItemByCode: (code: number) => Item | undefined;
 }
 
-export function LevelingPlan({ result }: Props) {
+type ActiveTab = "steps" | "recipes" | "missing";
+
+export function LevelingPlan({ result, getItemByCode }: Props) {
+  const character = useCharacterStore((s) => s.character);
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"steps" | "missing">("steps");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("steps");
+
+  const knownRecipes = useMemo(
+    () => new Set(Object.keys(character?.RecipeCompletions ?? {})),
+    [character]
+  );
+
+  // Unique recipes in the plan that the player doesn't know yet
+  const recipesToLearn = useMemo(() => {
+    const seen = new Set<string>();
+    const list: { recipeId: string; recipeName: string; skillLevelReq: number; internalName: string }[] = [];
+    for (const step of result.steps) {
+      if (!seen.has(step.recipeId) && !knownRecipes.has(step.recipeInternalName)) {
+        seen.add(step.recipeId);
+        list.push({
+          recipeId: step.recipeId,
+          recipeName: step.recipeName,
+          skillLevelReq: step.skillLevelReq,
+          internalName: step.recipeInternalName,
+        });
+      }
+    }
+    return list.sort((a, b) => a.skillLevelReq - b.skillLevelReq);
+  }, [result.steps, knownRecipes]);
 
   const totalSteps = result.steps.length;
   const fromInventory = result.steps.filter((s) => s.canCraftFromInventory).length;
@@ -45,7 +77,7 @@ export function LevelingPlan({ result }: Props) {
           <div className="text-text-muted text-xs mb-0.5">Est. Cost</div>
           <div className={`font-medium ${result.totalIngredientCost > 0 ? "text-gold" : "text-success"}`}>
             {result.totalIngredientCost > 0
-              ? `${result.totalIngredientCost.toLocaleString()}g`
+              ? `${result.totalIngredientCost.toLocaleString()}c`
               : "Free!"}
           </div>
         </div>
@@ -53,26 +85,15 @@ export function LevelingPlan({ result }: Props) {
 
       {/* Tab bar */}
       <div className="flex gap-1 bg-bg-secondary rounded-lg p-1 w-fit">
-        <button
-          onClick={() => setActiveTab("steps")}
-          className={`px-3 py-1.5 rounded text-sm transition-colors ${
-            activeTab === "steps"
-              ? "bg-accent text-white"
-              : "text-text-secondary hover:text-text-primary"
-          }`}
-        >
-          Leveling Steps ({result.steps.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("missing")}
-          className={`px-3 py-1.5 rounded text-sm transition-colors ${
-            activeTab === "missing"
-              ? "bg-accent text-white"
-              : "text-text-secondary hover:text-text-primary"
-          }`}
-        >
-          Shopping List ({result.missingIngredients.length})
-        </button>
+        <TabButton label={`Leveling Steps (${result.steps.length})`} tab="steps" activeTab={activeTab} setActiveTab={setActiveTab} />
+        <TabButton
+          label={`Recipes to Learn${recipesToLearn.length > 0 ? ` (${recipesToLearn.length})` : ""}`}
+          tab="recipes"
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          highlight={recipesToLearn.length > 0}
+        />
+        <TabButton label={`Shopping List (${result.missingIngredients.length})`} tab="missing" activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
 
       {activeTab === "steps" && (
@@ -81,10 +102,12 @@ export function LevelingPlan({ result }: Props) {
             <thead>
               <tr className="border-b border-border text-left text-text-secondary text-xs">
                 <th className="py-2 px-3">Recipe</th>
+                <th className="py-2 px-3 w-24" />
                 <th className="py-2 px-3 text-right">Crafts</th>
                 <th className="py-2 px-3 text-right">XP/craft</th>
                 <th className="py-2 px-3 text-right">Total XP</th>
-                <th className="py-2 px-3">Source</th>
+                <th className="py-2 px-3">Ingredients</th>
+                <th className="py-2 px-3">Where to Learn Recipe</th>
                 <th className="py-2 px-3 text-right">Cost</th>
               </tr>
             </thead>
@@ -93,6 +116,8 @@ export function LevelingPlan({ result }: Props) {
                 <StepRow
                   key={`${step.recipeId}-${i}`}
                   step={step}
+                  isKnown={knownRecipes.has(step.recipeInternalName)}
+                  getItemByCode={getItemByCode}
                   expanded={expandedStep === `${step.recipeId}-${i}`}
                   onToggle={() =>
                     setExpandedStep(
@@ -108,6 +133,13 @@ export function LevelingPlan({ result }: Props) {
         </div>
       )}
 
+      {activeTab === "recipes" && (
+        <RecipesToLearnTab
+          recipesToLearn={recipesToLearn}
+          getItemByCode={getItemByCode}
+        />
+      )}
+
       {activeTab === "missing" && (
         <MissingIngredientsList result={result} />
       )}
@@ -115,15 +147,43 @@ export function LevelingPlan({ result }: Props) {
   );
 }
 
+function TabButton({
+  label, tab, activeTab, setActiveTab, highlight,
+}: {
+  label: string; tab: ActiveTab; activeTab: ActiveTab;
+  setActiveTab: (t: ActiveTab) => void; highlight?: boolean;
+}) {
+  return (
+    <button
+      onClick={() => setActiveTab(tab)}
+      className={`px-3 py-1.5 rounded text-sm transition-colors ${
+        activeTab === tab
+          ? "bg-accent text-white"
+          : highlight
+          ? "text-gold hover:text-text-primary"
+          : "text-text-secondary hover:text-text-primary"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 function StepRow({
   step,
+  isKnown,
+  getItemByCode,
   expanded,
   onToggle,
 }: {
   step: LevelingStep;
+  isKnown: boolean;
+  getItemByCode: (code: number) => Item | undefined;
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const sourceLabels = getRecipeSourceLabels(step.recipeId, getItemByCode);
+
   return (
     <>
       <tr
@@ -137,20 +197,19 @@ function StepRow({
         }`}
       >
         <td className="py-2 px-3">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{step.recipeName}</span>
-            {step.isFirstTime && (
-              <span className="text-xs bg-gold/20 text-gold px-1.5 py-0.5 rounded">
-                FIRST TIME
-              </span>
-            )}
-            {!step.isFirstTime && step.canCraftFromInventory && (
-              <span className="text-xs bg-success/20 text-success px-1.5 py-0.5 rounded">
-                IN STOCK
-              </span>
-            )}
-          </div>
+          <span className="font-medium">{step.recipeName}</span>
           <div className="text-xs text-text-muted">Req Lv {step.skillLevelReq}</div>
+        </td>
+        <td className="py-2 px-3 w-24">
+          {step.isFirstTime ? (
+            <span className="text-xs bg-gold/20 text-gold px-1.5 py-0.5 rounded whitespace-nowrap">
+              FIRST TIME
+            </span>
+          ) : step.canCraftFromInventory ? (
+            <span className="text-xs bg-success/20 text-success px-1.5 py-0.5 rounded whitespace-nowrap">
+              IN STOCK
+            </span>
+          ) : null}
         </td>
         <td className="py-2 px-3 text-right">{step.craftCount.toLocaleString()}</td>
         <td className="py-2 px-3 text-right text-success">
@@ -159,16 +218,28 @@ function StepRow({
         <td className="py-2 px-3 text-right font-medium">
           {step.totalXp.toLocaleString()}
         </td>
+        <td className="py-2 px-3 text-xs text-text-muted">
+          {step.ingredients.map((ing, i) => (
+            <span key={ing.itemCode}>
+              {i > 0 && ", "}
+              <span className={ing.sufficient ? "text-success" : "text-danger"}>
+                {ing.name} ×{ing.expectedNeeded}
+              </span>
+            </span>
+          ))}
+        </td>
         <td className="py-2 px-3">
-          {step.canCraftFromInventory ? (
-            <span className="text-success text-xs">Inventory</span>
+          {isKnown ? (
+            <span className="text-xs text-success">✓ Known</span>
+          ) : sourceLabels.length > 0 ? (
+            <SourceDisplay labels={sourceLabels} />
           ) : (
-            <span className="text-danger text-xs">Need to buy</span>
+            <span className="text-xs text-text-muted">—</span>
           )}
         </td>
         <td className="py-2 px-3 text-right">
           {step.ingredientCost > 0 ? (
-            <span className="text-gold">{step.ingredientCost.toLocaleString()}g</span>
+            <span className="text-gold">{step.ingredientCost.toLocaleString()}c</span>
           ) : (
             <span className="text-text-muted">—</span>
           )}
@@ -176,24 +247,25 @@ function StepRow({
       </tr>
       {expanded && (
         <tr className="border-b border-border/50">
-          <td colSpan={6} className="py-3 px-6 bg-bg-secondary/30">
+          <td colSpan={8} className="py-3 px-6 bg-bg-secondary/30">
             <div className="space-y-2">
               <div className="text-xs font-medium text-text-secondary">Ingredients:</div>
               <div className="flex flex-wrap gap-3">
                 {step.ingredients.map((ing) => (
-                  <div
-                    key={ing.itemCode}
-                    className={`text-xs px-2 py-1 rounded border ${
-                      ing.sufficient
-                        ? "border-success/30 bg-success/10 text-success"
-                        : "border-danger/30 bg-danger/10 text-danger"
-                    }`}
-                  >
-                    {ing.name}
-                    <span className="ml-1 opacity-80">
-                      x{ing.expectedNeeded} (have {ing.have})
+                  <ItemTooltip key={ing.itemCode} itemCode={ing.itemCode} quantity={ing.have}>
+                    <span
+                      className={`text-xs px-2 py-1 rounded border inline-block ${
+                        ing.sufficient
+                          ? "border-success/30 bg-success/10 text-success"
+                          : "border-danger/30 bg-danger/10 text-danger"
+                      }`}
+                    >
+                      {ing.name}
+                      <span className="ml-1 opacity-80">
+                        x{ing.expectedNeeded} (have {ing.have})
+                      </span>
                     </span>
-                  </div>
+                  </ItemTooltip>
                 ))}
               </div>
               {step.resultItems.length > 0 && (
@@ -216,6 +288,87 @@ function StepRow({
       )}
     </>
   );
+}
+
+function RecipesToLearnTab({
+  recipesToLearn,
+  getItemByCode,
+}: {
+  recipesToLearn: { recipeId: string; recipeName: string; skillLevelReq: number; internalName: string }[];
+  getItemByCode: (code: number) => Item | undefined;
+}) {
+  if (recipesToLearn.length === 0) {
+    return (
+      <div className="text-center py-8 text-success text-sm">
+        ✓ You already know all recipes needed for this leveling plan!
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-text-muted">
+        You need to learn {recipesToLearn.length} recipe{recipesToLearn.length !== 1 ? "s" : ""} before you can follow this leveling plan. Learn them in order of level requirement.
+      </p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-left text-text-secondary text-xs">
+            <th className="py-2 px-3">Recipe</th>
+            <th className="py-2 px-3 text-right">Req Lv</th>
+            <th className="py-2 px-3">Where to Learn</th>
+          </tr>
+        </thead>
+        <tbody>
+          {recipesToLearn.map((r) => {
+            const labels = getRecipeSourceLabels(r.recipeId, getItemByCode);
+            return (
+              <tr key={r.recipeId} className="border-b border-border/50 hover:bg-bg-secondary/50">
+                <td className="py-2 px-3 font-medium">
+                  {r.recipeName}
+                </td>
+                <td className="py-2 px-3 text-right text-text-muted">{r.skillLevelReq}</td>
+                <td className="py-2 px-3">
+                  {labels.length > 0 ? (
+                    <SourceDisplay labels={labels} />
+                  ) : (
+                    <span className="text-xs text-text-muted italic">Source unknown</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SourceDisplay({ labels }: { labels: RecipeSourceLabel[] }) {
+  return (
+    <div className="space-y-0.5">
+      {labels.map((l, i) => (
+        <div key={i} className="text-xs flex items-baseline gap-1">
+          <SourceBadgeIcon kind={l.kind} />
+          <span className="text-text-primary">{l.label}</span>
+          {l.detail && (
+            <span className="text-text-muted">({l.detail})</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SourceBadgeIcon({ kind }: { kind: RecipeSourceLabel["kind"] }) {
+  switch (kind) {
+    case "trainer":  return <span>🎓</span>;
+    case "scroll":   return <span>📜</span>;
+    case "skill":    return <span>⭐</span>;
+    case "quest":    return <span>📋</span>;
+    case "hangout":  return <span>💬</span>;
+    case "gift":     return <span>🎁</span>;
+    default:         return <span className="text-text-muted">?</span>;
+  }
 }
 
 function SourceBadge({ itemCode, quantity }: { itemCode: number; quantity: number }) {
@@ -281,7 +434,7 @@ function MissingIngredientsList({ result }: { result: OptimizerResult }) {
       <div className="text-xs text-text-muted">
         Total estimated cost:{" "}
         <span className="text-gold font-medium">
-          {result.totalIngredientCost.toLocaleString()}g
+          {result.totalIngredientCost.toLocaleString()}c
         </span>
       </div>
 
@@ -345,7 +498,7 @@ function ShoppingGroup({
                 <td className="py-2 px-3 text-right text-danger">{ing.toBuy}</td>
                 <td className="py-2 px-3 text-right text-gold">
                   {ing.estimatedCost > 0
-                    ? `${ing.estimatedCost.toLocaleString()}g`
+                    ? `${ing.estimatedCost.toLocaleString()}c`
                     : "—"}
                 </td>
                 <td className="py-2 px-3">

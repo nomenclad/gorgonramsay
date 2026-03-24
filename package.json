@@ -1,11 +1,14 @@
 {
-  "name": "pgefficiency",
+  "name": "gorgonramsay",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:web": "BUILD_TARGET=web vite",
     "build": "tsc -b && vite build",
+    "build:web": "tsc -b && BUILD_TARGET=web vite build",
+    "preview:web": "BUILD_TARGET=web vite preview --port 4173",
     "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "tauri"
@@ -14,6 +17,7 @@
     "@tanstack/react-table": "^8.21.3",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/cli": "^2.10.1",
+    "@tauri-apps/plugin-dialog": "^2.6.0",
     "dexie": "^4.3.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

@@ -1,11 +1,16 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useInventoryStore } from "../../stores/inventoryStore";
 import { useCharacterStore } from "../../stores/characterStore";
 import { recipeGoldEfficiency } from "../../lib/optimizer";
+import { ContextMenu, wikiUrl, openInBrowser } from "../common/ContextMenu";
+import { FOOD_SKILLS } from "../../lib/foodSkills";
+import { useResizableColumns } from "../../hooks/useResizableColumns";
+import { ResizableTh, SortableResizableTh } from "../common/ResizableTh";
 
 type SortKey = "goldPerXp" | "effectiveXp" | "profit" | "ingredientCost";
 type SortDir = "asc" | "desc";
+
 
 export function GoldEfficiency() {
   const recipes = useGameDataStore((s) => s.recipes);
@@ -15,14 +20,18 @@ export function GoldEfficiency() {
   const getItemQuantity = useInventoryStore((s) => s.getItemQuantity);
   const character = useCharacterStore((s) => s.character);
 
-  const skillNames = useMemo(() => getSkillNames(), [getSkillNames, loaded]);
+  const skillNames = useMemo(
+    () => getSkillNames().filter((s) => FOOD_SKILLS.has(s)),
+    [getSkillNames, loaded]
+  );
 
   const [selectedSkill, setSelectedSkill] = useState<string>("Cooking");
   const [sortKey, setSortKey] = useState<SortKey>("goldPerXp");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [maxResults, setMaxResults] = useState(50);
+  const { widths: colW, startResize } = useResizableColumns("gold", [220, 70, 90, 90, 100, 100]);
 
-  const currentLevel = character?.Skills[selectedSkill] ?? 1;
+  const currentLevel = character?.Skills[selectedSkill]?.Level ?? 1;
 
   const rows = useMemo(() => {
     if (!loaded) return [];
@@ -57,6 +66,12 @@ export function GoldEfficiency() {
     return copy.slice(0, maxResults);
   }, [rows, sortKey, sortDir, maxResults]);
 
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; name: string } | null>(null);
+  const handleContextMenu = useCallback((e: React.MouseEvent, name: string) => {
+    e.preventDefault();
+    setCtxMenu({ x: e.clientX, y: e.clientY, name });
+  }, []);
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -66,38 +81,20 @@ export function GoldEfficiency() {
     }
   }
 
-  function SortHeader({
-    label,
-    colKey,
-  }: {
-    label: string;
-    colKey: SortKey;
-  }) {
-    const active = sortKey === colKey;
-    return (
-      <th
-        className="py-2 px-3 text-right cursor-pointer hover:text-text-primary select-none"
-        onClick={() => toggleSort(colKey)}
-      >
-        {label} {active ? (sortDir === "asc" ? "↑" : "↓") : ""}
-      </th>
-    );
-  }
-
   if (!loaded) {
     return (
       <div className="text-center py-12 text-text-muted">
-        Load game data in Settings to use Gold Efficiency.
+        Load game data in Settings to use Council Efficiency.
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto">
+    <div className="space-y-4 w-full">
       <div>
-        <h2 className="text-xl font-semibold">Gold Efficiency</h2>
+        <h2 className="text-xl font-semibold">Council Efficiency</h2>
         <p className="text-sm text-text-muted mt-1">
-          Compare recipes by gold cost per XP. Lower is better for leveling on a budget.
+          Compare recipes by council cost per XP. Lower is better for leveling on a budget.
         </p>
       </div>
 
@@ -112,7 +109,7 @@ export function GoldEfficiency() {
           >
             {skillNames.map((s) => (
               <option key={s} value={s}>
-                {s} {character?.Skills[s] ? `(Lv ${character.Skills[s]})` : ""}
+                {s} {character?.Skills[s] ? `(Lv ${character.Skills[s].Level})` : ""}
               </option>
             ))}
           </select>
@@ -128,10 +125,10 @@ export function GoldEfficiency() {
       {sorted.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-bg-secondary rounded-lg p-3">
-            <div className="text-xs text-text-muted mb-1">Best Gold/XP</div>
+            <div className="text-xs text-text-muted mb-1">Best Councils/XP</div>
             <div className="font-bold text-success">
               {isFinite(sorted[0].goldPerXp)
-                ? `${sorted[0].goldPerXp.toFixed(2)}g/xp`
+                ? `${sorted[0].goldPerXp.toFixed(2)}c/xp`
                 : "Free!"}
             </div>
             <div className="text-xs text-text-muted truncate">{sorted[0].recipe.Name}</div>
@@ -149,7 +146,7 @@ export function GoldEfficiency() {
               return (
                 <>
                   <div className={`font-bold ${best.profit >= 0 ? "text-success" : "text-danger"}`}>
-                    {best.profit >= 0 ? "+" : ""}{best.profit.toLocaleString()}g
+                    {best.profit >= 0 ? "+" : ""}{best.profit.toLocaleString()}c
                   </div>
                   <div className="text-xs text-text-muted truncate">{best.recipe.Name}</div>
                 </>
@@ -165,15 +162,15 @@ export function GoldEfficiency() {
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="text-sm" style={{ tableLayout: "fixed", width: colW.reduce((a, b) => a + b, 0) }}>
           <thead>
             <tr className="border-b border-border text-left text-text-secondary text-xs">
-              <th className="py-2 px-3">Recipe</th>
-              <th className="py-2 px-3 text-right">Req Lv</th>
-              <SortHeader label="XP/craft" colKey="effectiveXp" />
-              <SortHeader label="Ing. Cost" colKey="ingredientCost" />
-              <SortHeader label="Result Value" colKey="profit" />
-              <SortHeader label="Gold/XP" colKey="goldPerXp" />
+              <ResizableTh width={colW[0]} onStartResize={(x) => startResize(0, x)}>Recipe</ResizableTh>
+              <ResizableTh width={colW[1]} onStartResize={(x) => startResize(1, x)} right>Req Lv</ResizableTh>
+              <SortableResizableTh label="XP/craft" col="effectiveXp" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[2]} onStartResize={(x) => startResize(2, x)} />
+              <SortableResizableTh label="Ing. Cost" col="ingredientCost" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[3]} onStartResize={(x) => startResize(3, x)} />
+              <SortableResizableTh label="Result Value" col="profit" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[4]} onStartResize={(x) => startResize(4, x)} />
+              <SortableResizableTh label="Councils/XP" col="goldPerXp" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[5]} onStartResize={(x) => startResize(5, x)} />
             </tr>
           </thead>
           <tbody>
@@ -184,15 +181,13 @@ export function GoldEfficiency() {
               return (
                 <tr
                   key={row.recipe.id}
-                  className={`border-b border-border/50 hover:bg-bg-secondary/50 ${
+                  onContextMenu={(e) => handleContextMenu(e, row.recipe.Name)}
+                  className={`border-b border-border/50 hover:bg-bg-secondary/50 cursor-context-menu ${
                     isFree || isEfficient ? "bg-success/5" : ""
                   }`}
                 >
                   <td className="py-2 px-3">
                     <div className="font-medium">{row.recipe.Name}</div>
-                    <div className="text-xs text-text-muted">
-                      {row.recipe.InternalName}
-                    </div>
                   </td>
                   <td className="py-2 px-3 text-right text-text-muted">
                     {row.recipe.SkillLevelReq}
@@ -202,7 +197,7 @@ export function GoldEfficiency() {
                   </td>
                   <td className="py-2 px-3 text-right">
                     {row.ingredientCost > 0 ? (
-                      <span className="text-gold">{row.ingredientCost.toLocaleString()}g</span>
+                      <span className="text-gold">{row.ingredientCost.toLocaleString()}c</span>
                     ) : (
                       <span className="text-success text-xs">Free</span>
                     )}
@@ -210,7 +205,7 @@ export function GoldEfficiency() {
                   <td className="py-2 px-3 text-right">
                     <span className={isProfitable ? "text-success" : "text-text-muted"}>
                       {isProfitable ? "+" : ""}
-                      {row.profit.toLocaleString()}g
+                      {row.profit.toLocaleString()}c
                     </span>
                   </td>
                   <td className="py-2 px-3 text-right">
@@ -253,6 +248,20 @@ export function GoldEfficiency() {
           </div>
         )}
       </div>
+
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          onClose={() => setCtxMenu(null)}
+          items={[
+            {
+              label: "🔗 View on Wiki",
+              onClick: () => openInBrowser(wikiUrl(ctxMenu.name)),
+            },
+          ]}
+        />
+      )}
     </div>
   );
 }

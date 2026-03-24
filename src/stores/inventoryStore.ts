@@ -43,7 +43,9 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
   },
 
   getVaultNames: () => {
-    const vaults = new Set(get().items.map((i) => i.StorageVault));
+    const vaults = new Set(
+      get().items.map((i) => i.StorageVault).filter((v): v is string => !!v)
+    );
     return Array.from(vaults).sort();
   },
 }));

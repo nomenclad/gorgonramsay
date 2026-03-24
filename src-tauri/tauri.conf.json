@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "PG Efficiency",
+  "productName": "GorgonRamsay",
   "version": "0.1.0",
-  "identifier": "com.pgefficiency.app",
+  "identifier": "com.gorgonramsay.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "PG Efficiency - Project Gorgon Skill Optimizer",
+        "title": "GorgonRamsay",
         "width": 1280,
         "height": 800,
         "minWidth": 900,
@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https://cdn.projectgorgon.com http://cdn.projectgorgon.com http://client.projectgorgon.com; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; connect-src 'self' https://cdn.projectgorgon.com http://cdn.projectgorgon.com http://client.projectgorgon.com; img-src 'self' https://cdn.projectgorgon.com data:; style-src 'self' 'unsafe-inline'"
     }
   },
   "bundle": {
@@ -34,6 +34,14 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      },
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    }
   }
 }

@@ -5,7 +5,10 @@ import type {
 } from "../../types/inventory";
 
 export function parseInventory(json: string): InventoryExport {
-  return JSON.parse(json) as InventoryExport;
+  const parsed = JSON.parse(json) as InventoryExport;
+  // Guard against malformed or incomplete exports
+  if (!Array.isArray(parsed.Items)) parsed.Items = [];
+  return parsed;
 }
 
 export function aggregateInventory(items: InventoryItem[]): AggregatedItem[] {
@@ -15,18 +18,20 @@ export function aggregateInventory(items: InventoryItem[]): AggregatedItem[] {
   >();
 
   for (const item of items) {
+    if (!item || item.TypeID == null) continue;
+    const vaultKey = item.StorageVault ?? "__on_person__";
     const existing = grouped.get(item.TypeID);
     if (existing) {
       existing.totalQuantity += item.StackSize;
-      const vaultQty = existing.locations.get(item.StorageVault) ?? 0;
-      existing.locations.set(item.StorageVault, vaultQty + item.StackSize);
+      const vaultQty = existing.locations.get(vaultKey) ?? 0;
+      existing.locations.set(vaultKey, vaultQty + item.StackSize);
     } else {
       const locations = new Map<string, number>();
-      locations.set(item.StorageVault, item.StackSize);
+      locations.set(vaultKey, item.StackSize);
       grouped.set(item.TypeID, {
-        name: item.Name,
+        name: item.Name ?? "Unknown Item",
         totalQuantity: item.StackSize,
-        value: item.Value,
+        value: item.Value ?? 0,
         locations,
       });
     }

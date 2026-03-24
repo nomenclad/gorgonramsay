@@ -9,6 +9,8 @@ interface RawItemData {
   MaxStackSize: number;
   Value: number;
   NumUses?: number;
+  FoodDesc?: string;
+  EffectDescs?: string[];
 }
 
 export function parseItems(json: string): Item[] {

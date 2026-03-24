@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Recipe, Item, XpTable, SourcesData } from "../types";
-import { loadSourcesData, loadNpcNames } from "../lib/sourceResolver";
+import { loadSourcesData, loadNpcNames, loadRecipeSourcesData } from "../lib/sourceResolver";
+import { loadVaultData, loadAreaData, formatVaultName } from "../lib/vaultResolver";
 
 export interface RecipeIndexes {
   bySkill: Map<string, Recipe[]>;
@@ -24,13 +25,21 @@ interface GameDataState {
   sourcesLoaded: boolean;
   loaded: boolean;
   loading: boolean;
+  itemUsesJson: string | null;
+  cdnVersion: number | null;
 
   setRecipes: (recipes: Recipe[], indexes: RecipeIndexes) => void;
   setItems: (items: Item[], indexes: ItemIndexes) => void;
   setXpTables: (tables: XpTable[]) => void;
   setSources: (sources: SourcesData) => void;
+  setRecipeSources: (sources: SourcesData) => void;
   setNpcNames: (npcMap: Map<string, { name: string; area?: string }>) => void;
   setLoading: (loading: boolean) => void;
+  setItemUsesJson: (json: string) => void;
+  setCdnVersion: (version: number) => void;
+  setStorageVaults: (json: string) => void;
+  setAreas: (json: string) => void;
+  formatVaultName: (key: string) => string;
   getItemByCode: (code: number) => Item | undefined;
   getRecipesForSkill: (skill: string) => Recipe[];
   getSkillNames: () => string[];
@@ -45,6 +54,8 @@ export const useGameDataStore = create<GameDataState>((set, get) => ({
   sourcesLoaded: false,
   loaded: false,
   loading: false,
+  itemUsesJson: null,
+  cdnVersion: null,
 
   setRecipes: (recipes, indexes) =>
     set({
@@ -67,11 +78,25 @@ export const useGameDataStore = create<GameDataState>((set, get) => ({
     set({ sourcesLoaded: true });
   },
 
+  setRecipeSources: (sources) => {
+    loadRecipeSourcesData(sources);
+  },
+
   setNpcNames: (npcMap) => {
     loadNpcNames(npcMap);
   },
 
   setLoading: (loading) => set({ loading }),
+
+  setItemUsesJson: (json) => set({ itemUsesJson: json }),
+
+  setCdnVersion: (version) => set({ cdnVersion: version }),
+
+  setStorageVaults: (json) => { loadVaultData(json); },
+
+  setAreas: (json) => { loadAreaData(json); },
+
+  formatVaultName: (key) => formatVaultName(key),
 
   getItemByCode: (code) => get().itemIndexes?.byItemCode.get(code),
 

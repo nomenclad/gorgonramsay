@@ -217,7 +217,13 @@ export function runOptimizer(input: OptimizerInput): OptimizerResult {
     // How many crafts to get to next level or finish?
     const craftsNeeded = Math.max(1, Math.ceil(xpStillNeeded / effXp));
     const craftable = countCraftableFromMap(recipe, simInventory);
-    const craftCount = craftable > 0 ? Math.min(craftable, craftsNeeded) : craftsNeeded;
+    // When buying (not craftable), only plan one level at a time so the loop
+    // can reconsider higher-level recipes that unlock as simLevel increases.
+    const xpToNextLevel = Math.max(1, (xpTable.XpAmounts[simLevel] ?? 0) - simXp);
+    const craftsToNextLevel = Math.max(1, Math.ceil(xpToNextLevel / effXp));
+    const craftCount = craftable > 0
+      ? Math.min(craftable, craftsNeeded)
+      : Math.min(craftsToNextLevel, craftsNeeded);
 
     const step = buildStep(
       recipe,
