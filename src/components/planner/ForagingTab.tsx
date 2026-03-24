@@ -31,7 +31,7 @@ export function ForagingTab({ stillNeeded }: Props) {
   return (
     <div className="space-y-1">
       <p className="text-xs text-text-muted mb-3">
-        These items are not in any of your storage vaults and must be gathered, purchased from vendors, or farmed from monsters.
+        These items must be gathered, harvested, or farmed from monsters.
       </p>
 
       {stillNeeded.map((item) => {

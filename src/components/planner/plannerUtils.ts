@@ -54,6 +54,36 @@ export interface GatheringRoute {
   stillNeeded: StillNeededItem[];
 }
 
+// ─── Vendor selection helper ────────────────────────────────────────────────
+
+export type VendorInfo = { npcId: string; npcName: string; area: string };
+
+/**
+ * Pick the best single vendor for an item.
+ * Prefers a vendor in the cooking zone; falls back to the first available.
+ */
+export function pickBestVendor(
+  itemCode: number,
+  cookingZone: string
+): VendorInfo | null {
+  const vendors = getAcquisitionMethods(itemCode, 0).filter(
+    (m) => m.kind === "vendor"
+  ) as Extract<ReturnType<typeof getAcquisitionMethods>[number], { kind: "vendor" }>[];
+
+  if (vendors.length === 0) return null;
+
+  const inCookingZone = cookingZone
+    ? vendors.find((v) => v.area === cookingZone)
+    : undefined;
+  const best = inCookingZone ?? vendors[0];
+
+  return {
+    npcId: best.npcId,
+    npcName: best.npcName ?? "Vendor",
+    area: best.area ?? "Unknown",
+  };
+}
+
 // ─── Source label helper ────────────────────────────────────────────────────
 
 export function sourceLabel(methods: AcquisitionMethod[]): string {

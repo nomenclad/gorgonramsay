@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useCharacterStore } from "../../stores/characterStore";
 import { getRecipeSourceLabels } from "../../lib/sourceResolver";
 import { useGameDataStore } from "../../stores/gameDataStore";
-import { getAcquisitionMethods } from "../../lib/sourceResolver";
+import { pickBestVendor } from "./plannerUtils";
 import { formatSkillName } from "../../lib/foodSkills";
 import type { Recipe } from "../../types/recipe";
 import type { GatheringRoute, CraftingStep, StillNeededItem } from "./plannerUtils";
@@ -31,6 +31,7 @@ interface Props {
   plannedRecipes: { recipe: Recipe; quantity: number }[];
   stillNeeded: StillNeededItem[];
   gardenNeeded?: StillNeededItem[];
+  purchaseNeeded?: StillNeededItem[];
   gardeningZone: string;
   cookingZone: string;
 }
@@ -64,6 +65,7 @@ export function RouteTab({
   plannedRecipes,
   stillNeeded,
   gardenNeeded = [],
+  purchaseNeeded = [],
   gardeningZone,
   cookingZone,
 }: Props) {
@@ -117,28 +119,25 @@ export function RouteTab({
       }
     }
 
-    // 3. Vendor buys from stillNeeded
-    for (const item of stillNeeded) {
-      const methods = getAcquisitionMethods(item.itemCode, 0).filter(
-        (m) => m.kind === "vendor"
-      ) as Extract<ReturnType<typeof getAcquisitionMethods>[number], { kind: "vendor" }>[];
-      for (const v of methods) {
-        const zone = v.area ?? "Unknown";
-        const actions = getOrCreate(zone);
-        const existing = actions.find((a) => a.type === "vendor_buy");
-        if (existing) {
-          existing.items.push({
-            name: item.itemName,
-            qty: item.shortfall,
-            detail: v.npcName ?? "Vendor",
-          });
-        } else {
-          actions.push({
-            type: "vendor_buy",
-            label: ACTION_LABELS.vendor_buy,
-            items: [{ name: item.itemName, qty: item.shortfall, detail: v.npcName ?? "Vendor" }],
-          });
-        }
+    // 3. Vendor buys from purchaseNeeded (one vendor per item, prefer cooking zone)
+    for (const item of purchaseNeeded) {
+      const vendor = pickBestVendor(item.itemCode, cookingZone);
+      if (!vendor) continue;
+      const zone = vendor.area;
+      const actions = getOrCreate(zone);
+      const existing = actions.find((a) => a.type === "vendor_buy");
+      if (existing) {
+        existing.items.push({
+          name: item.itemName,
+          qty: item.shortfall,
+          detail: vendor.npcName,
+        });
+      } else {
+        actions.push({
+          type: "vendor_buy",
+          label: ACTION_LABELS.vendor_buy,
+          items: [{ name: item.itemName, qty: item.shortfall, detail: vendor.npcName }],
+        });
       }
     }
 
@@ -243,6 +242,7 @@ export function RouteTab({
     plannedRecipes,
     stillNeeded,
     gardenNeeded,
+    purchaseNeeded,
     gardeningZone,
     cookingZone,
     completions,
