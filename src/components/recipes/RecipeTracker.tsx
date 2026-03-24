@@ -9,7 +9,7 @@ import {
 } from "../../lib/sourceResolver";
 import { ContextMenu, wikiUrl, openInBrowser } from "../common/ContextMenu";
 import type { Recipe } from "../../types/recipe";
-import { FOOD_SKILLS, matchesSelectedSkill, MERGED_FISHING, formatSkillName } from "../../lib/foodSkills";
+import { FOOD_SKILLS, formatSkillName } from "../../lib/foodSkills";
 import { useNavStore } from "../../stores/navStore";
 import { useColumnFilters } from "../../hooks/useColumnFilters";
 import { ColumnFilterDropdown } from "../common/ColumnFilterDropdown";
