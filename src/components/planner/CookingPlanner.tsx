@@ -234,7 +234,7 @@ export function CookingPlannerPage() {
               <ForagingTab stillNeeded={forageNeeded} />
             )}
             {activeSubTab === "purchasing" && (
-              <PurchasingTab purchaseNeeded={purchaseNeeded} />
+              <PurchasingTab purchaseNeeded={purchaseNeeded} cookingZone={cookingZone} />
             )}
             {activeSubTab === "cooking" && (
               <CookingTab
