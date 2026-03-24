@@ -319,7 +319,7 @@ export function InventoryBrowser() {
       <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
 
       <div className="overflow-x-auto">
-        <table className="text-sm" style={{ tableLayout: "fixed", width: colW.slice(0, loaded ? 7 : 6).reduce((a, b) => a + b, 0) }}>
+        <table className="text-sm w-full" style={{ tableLayout: "fixed" }}>
           <thead>
             <tr className="border-b border-border text-left text-text-secondary text-xs">
               <SortableResizableTh label="Ingredient" col="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} width={colW[0]} onStartResize={(x) => startResize(0, x)}

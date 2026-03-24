@@ -29,7 +29,7 @@ export function ResizableTh({
 }: BaseProps) {
   return (
     <th
-      style={{ width, minWidth: width, maxWidth: width }}
+      style={{ width, minWidth: width }}
       className={`relative py-2 px-3 select-none ${right ? "text-right" : "text-left"} ${className}`}
     >
       {children}
