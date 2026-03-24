@@ -31,6 +31,7 @@ interface Props {
   plannedRecipes: { recipe: Recipe; quantity: number }[];
   stillNeeded: StillNeededItem[];
   gardenNeeded?: StillNeededItem[];
+  purchaseNeeded?: StillNeededItem[];
   gardeningZone: string;
   cookingZone: string;
 }
@@ -64,6 +65,7 @@ export function RouteTab({
   plannedRecipes,
   stillNeeded,
   gardenNeeded = [],
+  purchaseNeeded = [],
   gardeningZone,
   cookingZone,
 }: Props) {
@@ -117,8 +119,8 @@ export function RouteTab({
       }
     }
 
-    // 3. Vendor buys from stillNeeded
-    for (const item of stillNeeded) {
+    // 3. Vendor buys from purchaseNeeded
+    for (const item of purchaseNeeded) {
       const methods = getAcquisitionMethods(item.itemCode, 0).filter(
         (m) => m.kind === "vendor"
       ) as Extract<ReturnType<typeof getAcquisitionMethods>[number], { kind: "vendor" }>[];
@@ -243,6 +245,7 @@ export function RouteTab({
     plannedRecipes,
     stillNeeded,
     gardenNeeded,
+    purchaseNeeded,
     gardeningZone,
     cookingZone,
     completions,

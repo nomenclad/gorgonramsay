@@ -15,11 +15,13 @@ import {
 import { StorageTab } from "./StorageTab";
 import { GardeningTab } from "./GardeningTab";
 import { ForagingTab } from "./ForagingTab";
+import { PurchasingTab } from "./PurchasingTab";
 import { CookingTab } from "./CookingTab";
 import { RouteTab } from "./RouteTab";
+import { getAcquisitionMethods } from "../../lib/sourceResolver";
 import type { Recipe } from "../../types/recipe";
 
-type SubTab = "storage" | "gardening" | "foraging" | "cooking" | "route";
+type SubTab = "storage" | "gardening" | "foraging" | "purchasing" | "cooking" | "route";
 
 export function CookingPlannerPage() {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>("storage");
@@ -109,10 +111,15 @@ export function CookingPlannerPage() {
     [recipeIndexes, items]
   );
 
-  const { gardenNeeded, forageNeeded } = useMemo(() => {
+  const { gardenNeeded, purchaseNeeded, forageNeeded } = useMemo(() => {
     const gardenNeeded = gatheringRoute.stillNeeded.filter((i) => gardenItemSet.has(i.itemCode));
-    const forageNeeded = gatheringRoute.stillNeeded.filter((i) => !gardenItemSet.has(i.itemCode));
-    return { gardenNeeded, forageNeeded };
+    const nonGarden = gatheringRoute.stillNeeded.filter((i) => !gardenItemSet.has(i.itemCode));
+    const purchaseNeeded = nonGarden.filter((i) =>
+      getAcquisitionMethods(i.itemCode, 0).some((m) => m.kind === "vendor")
+    );
+    const purchaseSet = new Set(purchaseNeeded.map((i) => i.itemCode));
+    const forageNeeded = nonGarden.filter((i) => !purchaseSet.has(i.itemCode));
+    return { gardenNeeded, purchaseNeeded, forageNeeded };
   }, [gatheringRoute.stillNeeded, gardenItemSet]);
 
   const entryCount = Object.keys(entries).length;
@@ -121,6 +128,7 @@ export function CookingPlannerPage() {
     { key: "storage", label: "Storage", badge: gatheringRoute.zoneStops.length },
     { key: "gardening", label: "Gardening", badge: gardeningSteps.length + gardenNeeded.length },
     { key: "foraging", label: "Foraging", badge: forageNeeded.length },
+    { key: "purchasing", label: "Purchasing", badge: purchaseNeeded.length },
     { key: "cooking", label: "Cooking", badge: plannedRecipes.length },
     { key: "route", label: "Route" },
   ];
@@ -140,7 +148,7 @@ export function CookingPlannerPage() {
         )}
         </div>
         <p className="text-sm text-text-muted mt-1">
-          Your queued recipes broken down into storage runs, gardening, foraging, and cooking steps.
+          Your queued recipes broken down into storage runs, gardening, foraging, purchasing, and cooking steps.
         </p>
       </div>
 
@@ -225,6 +233,9 @@ export function CookingPlannerPage() {
             {activeSubTab === "foraging" && (
               <ForagingTab stillNeeded={forageNeeded} />
             )}
+            {activeSubTab === "purchasing" && (
+              <PurchasingTab purchaseNeeded={purchaseNeeded} />
+            )}
             {activeSubTab === "cooking" && (
               <CookingTab
                 plannedRecipes={plannedRecipes}
@@ -239,6 +250,7 @@ export function CookingPlannerPage() {
                 plannedRecipes={plannedRecipes}
                 stillNeeded={forageNeeded}
                 gardenNeeded={gardenNeeded}
+                purchaseNeeded={purchaseNeeded}
                 gardeningZone={gardeningZone}
                 cookingZone={cookingZone}
               />
