@@ -202,10 +202,56 @@ export function buildRawMaterials(
 // ─── Garden item identification ─────────────────────────────────────────────
 
 /**
+ * Crop names that can be grown via Gardening in Project Gorgon.
+ * Sourced from the wiki: https://wiki.projectgorgon.com/wiki/Gardening
+ *
+ * Vegetables:
+ *   Potato, Onion, Cabbage, Beet, Squash, Broccoli, Carrot,
+ *   Green Pepper, Red Pepper, Corn, Escarole, Basil, Cantaloupe,
+ *   Peas, Soybeans, Tomato, Red-Leaf Lettuce
+ *
+ * Unique:
+ *   Horse Apple, Cotton, Sugarcane, Barley, Pumpkin, Flax,
+ *   Oat Groats, Tundra Rye, Evil Pumpkin, Orcish Wheat, Treant Apple
+ */
+const GARDEN_CROP_NAMES = new Set([
+  // Vegetables
+  "Potato",
+  "Onion",
+  "Cabbage",
+  "Beet",
+  "Squash",
+  "Broccoli",
+  "Carrot",
+  "Green Pepper",
+  "Red Pepper",
+  "Corn",
+  "Escarole",
+  "Basil",
+  "Cantaloupe",
+  "Peas",
+  "Soybeans",
+  "Tomato",
+  "Red-Leaf Lettuce",
+  // Unique
+  "Horse Apple",
+  "Cotton",
+  "Sugarcane",
+  "Barley",
+  "Pumpkin",
+  "Flax",
+  "Oat Groats",
+  "Tundra Rye",
+  "Evil Pumpkin",
+  "Orcish Wheat",
+  "Treant Apple",
+]);
+
+/**
  * Build a set of item codes for items that can be grown via Gardening.
  * Uses two signals:
  *  1. Any Gardening-skill recipe that produces the item (via byResultItem).
- *  2. A matching seed item exists (e.g. "Carrot Seeds" → Carrot is growable).
+ *  2. The item's name matches a known garden crop from the wiki.
  */
 export function buildGardenItemSet(
   recipeIndexes: RecipeIndexes | null,
@@ -222,23 +268,11 @@ export function buildGardenItemSet(
     }
   }
 
-  // 2. Items that have a corresponding seed item (e.g. "Carrot Seeds" → "Carrot")
-  // Build a name→code lookup for all items
-  const nameToCode = new Map<string, number>();
+  // 2. Match item names against the known garden crop list
   for (const item of items) {
+    if (!GARDEN_CROP_NAMES.has(item.Name)) continue;
     const m = item.id.match(/(\d+)$/);
-    if (m) nameToCode.set(item.Name.toLowerCase(), parseInt(m[1], 10));
-  }
-
-  for (const item of items) {
-    // Match patterns like "Carrot Seeds", "Beet Seed", "Potato Eyes"
-    const seedMatch = item.Name.match(/^(.+?)\s+(?:Seeds?|Eyes|Cuttings?)$/i);
-    if (!seedMatch) continue;
-    const cropName = seedMatch[1].toLowerCase();
-    const cropCode = nameToCode.get(cropName);
-    if (cropCode != null) {
-      gardenCodes.add(cropCode);
-    }
+    if (m) gardenCodes.add(parseInt(m[1], 10));
   }
 
   return gardenCodes;
