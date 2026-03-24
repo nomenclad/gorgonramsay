@@ -5,7 +5,7 @@
 
 import { getVaultZone } from "../../lib/vaultResolver";
 import { getAcquisitionMethods, type AcquisitionMethod } from "../../lib/sourceResolver";
-import { FOOD_SKILLS, CRAFT_SKILLS, MERGED_FISHING } from "../../lib/foodSkills";
+import { CRAFT_SKILLS, MERGED_FISHING } from "../../lib/foodSkills";
 import type { RecipeIndexes } from "../../stores/gameDataStore";
 import type { Item } from "../../types/item";
 
