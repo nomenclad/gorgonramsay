@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { useCharacterStore } from "../../stores/characterStore";
 import { useInventoryStore } from "../../stores/inventoryStore";
 import { useGameDataStore } from "../../stores/gameDataStore";
+import { HelpModal } from "./HelpModal";
 
 export function Header() {
   const character = useCharacterStore((s) => s.character);
   const inventoryTimestamp = useInventoryStore((s) => s.importTimestamp);
   const dataLoaded = useGameDataStore((s) => s.loaded);
+  const [showHelp, setShowHelp] = useState(false);
 
   return (
     <header className="bg-bg-secondary border-b border-border px-4 py-3">
@@ -42,8 +45,18 @@ export function Header() {
           >
             {dataLoaded ? "Data loaded" : "No game data"}
           </span>
+
+          <button
+            onClick={() => setShowHelp(true)}
+            className="px-2 py-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-primary transition-colors"
+            title="Help"
+          >
+            Help
+          </button>
         </div>
       </div>
+
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </header>
   );
 }
