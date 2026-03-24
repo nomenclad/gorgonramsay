@@ -16,6 +16,14 @@ interface RawVaultEntry {
 let vaultMap: Map<string, RawVaultEntry> = new Map();
 let areaDisplayNames: Map<string, string> = new Map();
 
+/**
+ * Zone name aliases — maps alternate display names to a canonical name.
+ * Some areas appear under different names in the CDN data.
+ */
+const ZONE_ALIASES: Record<string, string> = {
+  "Red Wing Casino": "Casino",
+};
+
 export function loadVaultData(json: string): void {
   const raw: Record<string, RawVaultEntry> = JSON.parse(json);
   vaultMap = new Map(Object.entries(raw));
@@ -24,7 +32,10 @@ export function loadVaultData(json: string): void {
 export function loadAreaData(json: string): void {
   const raw: Record<string, { FriendlyName?: string; ShortFriendlyName?: string }> = JSON.parse(json);
   areaDisplayNames = new Map(
-    Object.entries(raw).map(([k, v]) => [k, v.ShortFriendlyName ?? v.FriendlyName ?? k])
+    Object.entries(raw).map(([k, v]) => {
+      const name = v.ShortFriendlyName ?? v.FriendlyName ?? k;
+      return [k, ZONE_ALIASES[name] ?? name];
+    })
   );
 }
 
@@ -36,7 +47,8 @@ export function getVaultZone(key: string | null | undefined): string | null {
   if (key === "__on_person__") return null; // treated as already on hand, not a vault stop
   const entry = vaultMap.get(key);
   if (!entry?.Area || entry.Area === "*") return null;
-  return areaDisplayNames.get(entry.Area) ?? entry.Area.replace(/^Area/, "");
+  const raw = areaDisplayNames.get(entry.Area) ?? entry.Area.replace(/^Area/, "");
+  return ZONE_ALIASES[raw] ?? raw;
 }
 
 /**
@@ -46,8 +58,8 @@ export function getAllZones(): string[] {
   const zones = new Set<string>();
   for (const entry of vaultMap.values()) {
     if (entry.Area && entry.Area !== "*") {
-      const zone = areaDisplayNames.get(entry.Area) ?? entry.Area.replace(/^Area/, "");
-      zones.add(zone);
+      const raw = areaDisplayNames.get(entry.Area) ?? entry.Area.replace(/^Area/, "");
+      zones.add(ZONE_ALIASES[raw] ?? raw);
     }
   }
   return Array.from(zones).sort();
@@ -86,6 +98,7 @@ export function formatVaultName(key: string | null | undefined): string {
 
   if (!areaCode || areaCode === "*") return name;
 
-  const zone = areaDisplayNames.get(areaCode) ?? areaCode.replace(/^Area/, "");
+  const raw = areaDisplayNames.get(areaCode) ?? areaCode.replace(/^Area/, "");
+  const zone = ZONE_ALIASES[raw] ?? raw;
   return `${name} (${zone})`;
 }

@@ -22,9 +22,11 @@ import { getAcquisitionMethods } from "../../lib/sourceResolver";
 import type { Recipe } from "../../types/recipe";
 
 type SubTab = "storage" | "gardening" | "foraging" | "purchasing" | "cooking" | "route";
+export type ViewMode = "list" | "card";
 
 export function CookingPlannerPage() {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>("storage");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   // Stores
   const entries = usePlannerStore((s) => s.entries);
@@ -200,7 +202,8 @@ export function CookingPlannerPage() {
           </div>
 
           {/* Sub-tab bar */}
-          <div className="flex gap-1 bg-bg-secondary rounded-lg p-1">
+          <div className="flex items-center gap-2">
+          <div className="flex gap-1 bg-bg-secondary rounded-lg p-1 flex-1">
             {subTabs.map(({ key, label, badge }) => (
               <button
                 key={key}
@@ -222,20 +225,42 @@ export function CookingPlannerPage() {
               </button>
             ))}
           </div>
+            {/* View toggle */}
+            <div className="flex gap-0.5 bg-bg-secondary rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`px-2 py-1.5 rounded text-xs transition-colors ${
+                  viewMode === "list" ? "bg-accent text-white" : "text-text-secondary hover:text-text-primary"
+                }`}
+                title="List view"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="1.5" rx="0.5" fill="currentColor"/><rect x="1" y="6" width="12" height="1.5" rx="0.5" fill="currentColor"/><rect x="1" y="10" width="12" height="1.5" rx="0.5" fill="currentColor"/></svg>
+              </button>
+              <button
+                onClick={() => setViewMode("card")}
+                className={`px-2 py-1.5 rounded text-xs transition-colors ${
+                  viewMode === "card" ? "bg-accent text-white" : "text-text-secondary hover:text-text-primary"
+                }`}
+                title="Card view"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor"/><rect x="8" y="1" width="5" height="5" rx="1" fill="currentColor"/><rect x="1" y="8" width="5" height="5" rx="1" fill="currentColor"/><rect x="8" y="8" width="5" height="5" rx="1" fill="currentColor"/></svg>
+              </button>
+            </div>
+          </div>
 
           {/* Sub-tab content */}
           <div>
             {activeSubTab === "storage" && (
-              <StorageTab gatheringRoute={gatheringRoute} cookingZone={cookingZone} />
+              <StorageTab gatheringRoute={gatheringRoute} cookingZone={cookingZone} viewMode={viewMode} />
             )}
             {activeSubTab === "gardening" && (
-              <GardeningTab gardeningSteps={gardeningSteps} gardeningZone={gardeningZone} gardenNeeded={gardenNeeded} />
+              <GardeningTab gardeningSteps={gardeningSteps} gardeningZone={gardeningZone} gardenNeeded={gardenNeeded} viewMode={viewMode} />
             )}
             {activeSubTab === "foraging" && (
-              <ForagingTab stillNeeded={forageNeeded} />
+              <ForagingTab stillNeeded={forageNeeded} viewMode={viewMode} />
             )}
             {activeSubTab === "purchasing" && (
-              <PurchasingTab purchaseNeeded={purchaseNeeded} cookingZone={cookingZone} />
+              <PurchasingTab purchaseNeeded={purchaseNeeded} cookingZone={cookingZone} viewMode={viewMode} />
             )}
             {activeSubTab === "cooking" && (
               <CookingTab

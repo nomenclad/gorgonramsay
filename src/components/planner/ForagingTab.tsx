@@ -2,12 +2,14 @@ import { useState, useCallback } from "react";
 import { getAcquisitionMethods } from "../../lib/sourceResolver";
 import { useMonsterDrops } from "../../hooks/useMonsterDrops";
 import type { StillNeededItem } from "./plannerUtils";
+import type { ViewMode } from "./CookingPlanner";
 
 interface Props {
   stillNeeded: StillNeededItem[];
+  viewMode?: ViewMode;
 }
 
-export function ForagingTab({ stillNeeded }: Props) {
+export function ForagingTab({ stillNeeded, viewMode = "list" }: Props) {
   const monsterDrops = useMonsterDrops();
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
@@ -24,6 +26,39 @@ export function ForagingTab({ stillNeeded }: Props) {
     return (
       <div className="text-center py-8 text-text-muted text-sm">
         Nothing to forage! All ingredients are available in your storage vaults.
+      </div>
+    );
+  }
+
+  if (viewMode === "card") {
+    return (
+      <div className="space-y-3">
+        <p className="text-xs text-text-muted">
+          These items must be gathered, harvested, or farmed from monsters.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          {stillNeeded.map((item) => {
+            const methods = getAcquisitionMethods(item.itemCode, 0).filter(
+              (m) => m.kind === "vendor" || m.kind === "gather" || m.kind === "fishing"
+            );
+            const wikiDrops = monsterDrops[item.itemName] ?? null;
+            const source = methods.some((m) => m.kind === "gather")
+              ? "Gather"
+              : methods.some((m) => m.kind === "fishing")
+              ? "Fishing"
+              : wikiDrops && wikiDrops.length > 0
+              ? `${wikiDrops[0].monster}`
+              : "Unknown";
+
+            return (
+              <div key={item.itemCode} className="bg-bg-secondary rounded-lg p-3 border border-border flex flex-col gap-1">
+                <span className="text-sm font-semibold text-text-primary">{item.itemName}</span>
+                <span className="text-error font-medium text-xs">×{item.shortfall}</span>
+                <span className="text-text-muted text-xs truncate" title={source}>{source}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }

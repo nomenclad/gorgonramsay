@@ -1,13 +1,15 @@
 import { useInventoryStore } from "../../stores/inventoryStore";
 import type { CraftingStep, StillNeededItem } from "./plannerUtils";
+import type { ViewMode } from "./CookingPlanner";
 
 interface Props {
   gardeningSteps: CraftingStep[];
   gardeningZone: string;
   gardenNeeded?: StillNeededItem[];
+  viewMode?: ViewMode;
 }
 
-export function GardeningTab({ gardeningSteps, gardeningZone, gardenNeeded = [] }: Props) {
+export function GardeningTab({ gardeningSteps, gardeningZone, gardenNeeded = [], viewMode = "list" }: Props) {
   const getItemQuantity = useInventoryStore((s) => s.getItemQuantity);
 
   if (gardeningSteps.length === 0 && gardenNeeded.length === 0) {
@@ -113,12 +115,23 @@ export function GardeningTab({ gardeningSteps, gardeningZone, gardenNeeded = [] 
           <p className="text-xs text-text-muted">
             These items can be grown in your garden{gardeningZone ? ` in ${gardeningZone}` : ""}. Purchase seeds from a Gardening vendor and plant them.
           </p>
-          {gardenNeeded.map((item) => (
-            <div key={item.itemCode} className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 py-2 border border-border">
-              <span className="text-error font-medium text-sm shrink-0">×{item.shortfall}</span>
-              <span className="text-text-primary text-sm font-medium">{item.itemName}</span>
+          {viewMode === "card" ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              {gardenNeeded.map((item) => (
+                <div key={item.itemCode} className="bg-bg-secondary rounded-lg p-3 border border-border flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-text-primary">{item.itemName}</span>
+                  <span className="text-error font-medium text-xs">×{item.shortfall}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          ) : (
+            gardenNeeded.map((item) => (
+              <div key={item.itemCode} className="flex items-center gap-2 bg-bg-secondary rounded-lg px-3 py-2 border border-border">
+                <span className="text-error font-medium text-sm shrink-0">×{item.shortfall}</span>
+                <span className="text-text-primary text-sm font-medium">{item.itemName}</span>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>
