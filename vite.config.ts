@@ -32,6 +32,8 @@ export default defineConfig({
     }),
   },
 
+  base: isWebBuild ? "/gorgonramsay/" : "/",
+
   build: isWebBuild
     ? {
         outDir: "dist-web",
