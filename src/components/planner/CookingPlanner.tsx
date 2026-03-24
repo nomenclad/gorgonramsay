@@ -40,7 +40,7 @@ export function CookingPlannerPage() {
   const getItemQuantity = useInventoryStore((s) => s.getItemQuantity);
   const getItemLocations = useInventoryStore((s) => s.getItemLocations);
 
-  const allZones = useMemo(() => getAllAreaZones(), []);
+  const allZones = useMemo(() => getAllAreaZones(), [loaded]);
 
 
   // Resolve planned recipes → full Recipe objects with quantities
