@@ -20,6 +20,21 @@ export function formatSkillName(id: string): string {
   return id.replace(/([A-Z])/g, " $1").trim();
 }
 
+/**
+ * Skills where the planner should auto-resolve intermediate crafting steps.
+ * Gathering skills (Butchering, Fishing, Angling) are excluded because their
+ * outputs (Salt, meat, fish) are better treated as raw materials to purchase
+ * or farm rather than intermediate crafts to queue.
+ */
+export const CRAFT_SKILLS = new Set([
+  "Cooking",
+  "Cheesemaking",
+  "Gardening",
+  "Mycology",
+  "SushiPreparation",
+  "IceConjuration",
+]);
+
 /** Skills that should be merged under "Fishing" in the sidebar */
 export const MERGED_FISHING = new Set(["Fishing", "Angling"]);
 

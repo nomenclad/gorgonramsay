@@ -1,12 +1,14 @@
 import { pickBestVendor } from "./plannerUtils";
 import type { StillNeededItem } from "./plannerUtils";
+import type { ViewMode } from "./CookingPlanner";
 
 interface Props {
   purchaseNeeded: StillNeededItem[];
   cookingZone: string;
+  viewMode?: ViewMode;
 }
 
-export function PurchasingTab({ purchaseNeeded, cookingZone }: Props) {
+export function PurchasingTab({ purchaseNeeded, cookingZone, viewMode = "list" }: Props) {
   if (purchaseNeeded.length === 0) {
     return (
       <div className="text-center py-8 text-text-muted text-sm">
@@ -31,6 +33,31 @@ export function PurchasingTab({ purchaseNeeded, cookingZone }: Props) {
     if (cookingZone && b[0] === cookingZone) return 1;
     return a[0].localeCompare(b[0]);
   });
+
+  if (viewMode === "card") {
+    const allItems = sortedZones.flatMap(([zone, entries]) =>
+      entries.map((e) => ({ ...e, zone }))
+    );
+    return (
+      <div className="space-y-3">
+        <p className="text-xs text-text-muted">
+          These items can be purchased from NPC vendors.
+          {cookingZone && " Vendors in your cooking zone are preferred where available."}
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          {allItems.map(({ item, npcName, zone }) => (
+            <div key={item.itemCode} className="bg-bg-secondary rounded-lg p-3 border border-border flex flex-col gap-1">
+              <span className="text-sm font-semibold text-text-primary">{item.itemName}</span>
+              <span className="text-error font-medium text-xs">×{item.shortfall}</span>
+              <span className="text-text-muted text-xs truncate" title={`${npcName} (${zone})`}>
+                <span className="text-accent">{npcName}</span> — {zone}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
