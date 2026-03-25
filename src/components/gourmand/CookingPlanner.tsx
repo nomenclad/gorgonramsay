@@ -200,13 +200,13 @@ export function CookingPlanner({ foods, completions, recipeByName, onClose }: Pr
     localStorage.setItem("cookingZone", zone);
   }
 
-  // From the passed (already-filtered) list, keep foods with a known recipe not yet cooked
+  // From the passed (already-filtered) list, keep foods with a known recipe
   const cookedFoods = useMemo(() => {
     const firstTime = foods.filter(
-      (f) => f.hasTracking && f.internalName in completions && !completions[f.internalName]
+      (f) => f.hasTracking && f.recipeInternalName! in completions && !completions[f.recipeInternalName!]
     );
     if (firstTime.length === 0) {
-      return foods.filter((f) => f.hasTracking && f.internalName in completions);
+      return foods.filter((f) => f.hasTracking && f.recipeInternalName! in completions);
     }
     return firstTime;
   }, [foods, completions]);
@@ -215,7 +215,7 @@ export function CookingPlanner({ foods, completions, recipeByName, onClose }: Pr
   const filteredCookedFoods = useMemo(() => {
     if (ingredientFilter === "all" || !inventoryLoaded) return cookedFoods;
     return cookedFoods.filter((food) => {
-      const recipe = recipeByName.get(food.internalName);
+      const recipe = recipeByName.get(food.recipeInternalName!);
       if (!recipe) return ingredientFilter === "gathering";
       const allAvailable = recipe.Ingredients.every(
         (ing) => getItemQuantity(ing.ItemCode) >= ing.StackSize
@@ -228,7 +228,7 @@ export function CookingPlanner({ foods, completions, recipeByName, onClose }: Pr
   const readyCount = useMemo(() => {
     if (!inventoryLoaded) return 0;
     return cookedFoods.filter((food) => {
-      const recipe = recipeByName.get(food.internalName);
+      const recipe = recipeByName.get(food.recipeInternalName!);
       if (!recipe) return false;
       return recipe.Ingredients.every((ing) => getItemQuantity(ing.ItemCode) >= ing.StackSize);
     }).length;
@@ -240,7 +240,7 @@ export function CookingPlanner({ foods, completions, recipeByName, onClose }: Pr
     const directTotals = new Map<number, number>(); // aggregated direct ingredients
 
     for (const food of filteredCookedFoods) {
-      const recipe = recipeByName.get(food.internalName);
+      const recipe = recipeByName.get(food.recipeInternalName!);
       if (!recipe) continue;
       foodList.push({ food, recipe });
       for (const ing of recipe.Ingredients) {

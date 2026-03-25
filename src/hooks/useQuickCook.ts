@@ -79,9 +79,10 @@ export function useQuickCook(onAfterQueue?: () => void): QuickCookResult {
     const sorted = [...foods]
       .filter((f) => f.hasTracking)
       .sort((a, b) => {
-        const aEaten = a.internalName in completions ? 1 : 0;
-        const bEaten = b.internalName in completions ? 1 : 0;
-        if (aEaten !== bEaten) return aEaten - bEaten;
+        // Check crafting status via recipe InternalName (best proxy for eaten — the export doesn't track eating directly)
+        const aCrafted = a.recipeInternalName! in completions ? 1 : 0;
+        const bCrafted = b.recipeInternalName! in completions ? 1 : 0;
+        if (aCrafted !== bCrafted) return aCrafted - bCrafted;
         return b.foodLevel - a.foodLevel;
       });
 

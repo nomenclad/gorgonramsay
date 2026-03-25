@@ -22,8 +22,15 @@ import type { CharacterSheet, SkillState } from "../types";
 
 interface CharacterState {
   character: CharacterSheet | null;
+  /**
+   * Foods the player has eaten for Gourmand XP, parsed from the game's local
+   * Books directory text file. Keys are food display names (e.g. "Large Strawberry"),
+   * values are eat counts. Null if the file hasn't been imported yet.
+   */
+  eatenFoods: Map<string, number> | null;
 
   setCharacter: (sheet: CharacterSheet) => void;
+  setEatenFoods: (foods: Map<string, number>) => void;
   getSkill: (name: string) => SkillState | undefined;
   getRecipeCompletion: (internalName: string) => number | undefined;
   isFirstTimeRecipe: (internalName: string) => boolean;
@@ -32,8 +39,10 @@ interface CharacterState {
 
 export const useCharacterStore = create<CharacterState>((set, get) => ({
   character: null,
+  eatenFoods: null,
 
   setCharacter: (sheet) => set({ character: sheet }),
+  setEatenFoods: (foods) => set({ eatenFoods: foods }),
 
   getSkill: (name) => get().character?.Skills[name],
 

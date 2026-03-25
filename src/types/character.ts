@@ -21,9 +21,10 @@ export interface CharacterSheet {
   Race: string;
   Skills: Record<string, SkillState>;
   /**
-   * Keys are recipe InternalNames (e.g. "CookingFood_MildCheddarCheese"),
-   * values are completion counts. Used to determine recipe knowledge and
-   * eaten status for Gourmand tracking.
+   * Keys are recipe InternalNames (e.g. "Butter", "CraftedLeatherBoots1"),
+   * values are completion counts (how many times crafted). Used to determine
+   * recipe knowledge. NOTE: this tracks crafting only — eaten-food status
+   * is NOT included in the character export.
    */
   RecipeCompletions: Record<string, number>;
   /**

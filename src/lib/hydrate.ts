@@ -13,6 +13,7 @@ import { parseXpTables } from "./parsers/xpTableParser";
 import { parseSourcesData, parseNpcNames } from "./parsers/sourceParser";
 import { parseCharacterSheet } from "./parsers/characterParser";
 import { parseInventory } from "./parsers/inventoryParser";
+import { parseEatenFoods } from "./parsers/eatenFoodsParser";
 import { useGameDataStore } from "../stores/gameDataStore";
 import { useCharacterStore } from "../stores/characterStore";
 import { useInventoryStore } from "../stores/inventoryStore";
@@ -90,6 +91,17 @@ export async function hydrateFromCache(): Promise<void> {
       const sheet = parseCharacterSheet(charJson);
       useCharacterStore.getState().setCharacter(sheet);
     } catch (e) { console.warn("Skipping corrupted character data:", e); }
+  }
+
+  // 2b. Restore eaten foods (from the game's local Books directory file)
+  const eatenText = await getUserFile("eatenFoods");
+  if (eatenText) {
+    try {
+      const eatenMap = parseEatenFoods(eatenText);
+      if (eatenMap) {
+        useCharacterStore.getState().setEatenFoods(eatenMap);
+      }
+    } catch (e) { console.warn("Skipping corrupted eaten-foods data:", e); }
   }
 
   // 3. Restore inventory — last because it's the least critical for initial render

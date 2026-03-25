@@ -16,6 +16,7 @@ import {
 import { parseItems, buildItemIndexes } from "../../lib/parsers/itemParser";
 import { parseCharacterSheet } from "../../lib/parsers/characterParser";
 import { parseInventory } from "../../lib/parsers/inventoryParser";
+import { parseEatenFoods } from "../../lib/parsers/eatenFoodsParser";
 import { parseXpTables } from "../../lib/parsers/xpTableParser";
 import { parseSourcesData, parseNpcNames } from "../../lib/parsers/sourceParser";
 import {
@@ -70,6 +71,8 @@ export function SettingsPage() {
   const loaded = useGameDataStore((s) => s.loaded);
   const sourcesLoaded = useGameDataStore((s) => s.sourcesLoaded);
   const setCharacter = useCharacterStore((s) => s.setCharacter);
+  const setEatenFoods = useCharacterStore((s) => s.setEatenFoods);
+  const eatenFoods = useCharacterStore((s) => s.eatenFoods);
   const setInventory = useInventoryStore((s) => s.setInventory);
   const character = useCharacterStore((s) => s.character);
   const inventoryTimestamp = useInventoryStore((s) => s.importTimestamp);
@@ -400,12 +403,21 @@ export function SettingsPage() {
         } else if (file.name === "itemuses.json") {
           setItemUsesJson(text);
           addStatus(`✓ Item uses (Gourmand) loaded (drag-drop)`);
+        } else if (file.name.endsWith(".txt") && text.includes("Foods Consumed:")) {
+          const eaten = parseEatenFoods(text);
+          if (eaten) {
+            setEatenFoods(eaten);
+            storeUserFile("eatenFoods", text).catch(() => {});
+            addStatus(`✓ Gourmand eaten data loaded: ${eaten.size} foods (drag-drop)`);
+          } else {
+            addStatus(`✗ No 'Foods Consumed' section found in ${file.name}`);
+          }
         } else {
           addStatus(`? Unrecognized file: ${file.name}`);
         }
       }
     },
-    [addStatus, setRecipes, setItems, setXpTables, setSources, setRecipeSources, setNpcNames, setItemUsesJson, setCharacter, setInventory]
+    [addStatus, setRecipes, setItems, setXpTables, setSources, setRecipeSources, setNpcNames, setItemUsesJson, setCharacter, setInventory, setEatenFoods]
   );
 
   return (
@@ -767,6 +779,36 @@ export function SettingsPage() {
                   {inventoryTimestamp ? "↻ Reload Inventory" : "Choose Inventory File"}
                 </span>
               </label>
+
+              <label className="flex flex-col gap-1 cursor-pointer">
+                <span className="text-xs text-text-muted">Gourmand eaten report (.txt from Books/)</span>
+                <input
+                  type="file"
+                  accept=".txt"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const text = await file.text();
+                      const eaten = parseEatenFoods(text);
+                      if (!eaten) {
+                        addStatus("✗ No 'Foods Consumed' section found in file");
+                        return;
+                      }
+                      setEatenFoods(eaten);
+                      storeUserFile("eatenFoods", text).catch(() => {});
+                      addStatus(`✓ Gourmand eaten data loaded: ${eaten.size} foods consumed`);
+                    } catch (err) {
+                      addStatus(`✗ Failed to parse eaten foods: ${err}`);
+                    }
+                    e.target.value = "";
+                  }}
+                />
+                <span className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-sm text-center transition-colors">
+                  {eatenFoods ? `↻ Reload Eaten (${eatenFoods.size})` : "Choose Eaten Foods File"}
+                </span>
+              </label>
             </div>
           </section>
         </>
@@ -783,7 +825,7 @@ export function SettingsPage() {
           Drag & drop files here
         </p>
         <p className="text-text-muted text-xs mt-1">
-          Character_*.json · *_items_*.json · or any CDN JSON as override
+          Character_*.json · *_items_*.json · Gourmand .txt · or any CDN JSON
         </p>
       </section>
 
