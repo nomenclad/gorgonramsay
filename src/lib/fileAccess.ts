@@ -30,6 +30,9 @@ const DIR_HANDLE_KEY = "pgReportsDir";
  * Throws if the user cancels or the browser doesn't support it.
  */
 export async function pickDirectory(): Promise<FileSystemDirectoryHandle> {
+  if (!window.showDirectoryPicker) {
+    throw new Error("File System Access API is not supported in this browser");
+  }
   const handle = await window.showDirectoryPicker({ mode: "read" });
   await storeDirectoryHandle(DIR_HANDLE_KEY, handle);
   return handle;
