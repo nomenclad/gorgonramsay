@@ -463,22 +463,12 @@ export function SettingsPage() {
         </div>
         {reportFiles.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {reportFiles.some((f) => f.file_type === "character") && (
-              <button
-                onClick={loadCharacter}
-                className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded text-sm transition-colors"
-              >
-                {character ? "↻ Reload Character" : "Load Character"}
-              </button>
-            )}
-            {reportFiles.some((f) => f.file_type === "inventory") && (
-              <button
-                onClick={loadInventory}
-                className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded text-sm transition-colors"
-              >
-                {inventoryTimestamp ? "↻ Reload Inventory" : "Load Latest Inventory"}
-              </button>
-            )}
+            <button
+              onClick={async () => { await loadCharacter(); await loadInventory(); }}
+              className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded text-sm transition-colors"
+            >
+              {character || inventoryTimestamp ? "↻ Reload Latest" : "Load Latest"}
+            </button>
           </div>
         )}
         {reportFiles.filter((f) => f.file_type === "inventory").length > 0 && (
@@ -563,6 +553,16 @@ export function SettingsPage() {
                   )}
                 </div>
               </div>
+
+              {/* Load Latest button */}
+              {webFolder.folderName && !webFolder.needsPermission && (
+                <button
+                  onClick={webFolder.loadLatest}
+                  className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded text-sm transition-colors w-fit"
+                >
+                  {character || inventoryTimestamp ? "↻ Reload Latest" : "Load Latest"}
+                </button>
+              )}
 
               {/* Permission re-grant banner */}
               {webFolder.needsPermission && (

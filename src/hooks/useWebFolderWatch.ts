@@ -100,6 +100,8 @@ export interface WebFolderWatch {
   pickFolder: () => Promise<void>;
   /** Disconnect the folder and clear stored handle */
   disconnect: () => Promise<void>;
+  /** Load the latest character + inventory from the selected folder */
+  loadLatest: () => Promise<void>;
   /** Whether auto-watch polling is active */
   watching: boolean;
   /** Toggle auto-watch on/off */
@@ -211,6 +213,53 @@ export function useWebFolderWatch(
     addStatus("Folder disconnected");
   }, [addStatus]);
 
+  /* ---- loadLatest ---- */
+  const loadLatest = useCallback(async () => {
+    const handle = dirHandleRef.current;
+    if (!handle) {
+      addStatus("✗ No folder selected");
+      return;
+    }
+    try {
+      const perm = await handle.queryPermission({ mode: "read" });
+      if (perm !== "granted") {
+        setNeedsPermission(true);
+        addStatus("✗ Folder permission expired — please re-grant");
+        return;
+      }
+      const files = await listReportFiles(handle);
+      let loaded = 0;
+
+      const charFile = files.find((f) => f.type === "character");
+      if (charFile) {
+        const file = await charFile.handle.getFile();
+        const json = await file.text();
+        const sheet = parseCharacterSheet(json);
+        setCharacter(sheet);
+        storeUserFile("character", json).catch(() => {});
+        addStatus(`✓ Character loaded: ${sheet.Character} @ ${sheet.ServerName}`);
+        lastCharTsRef.current = charFile.lastModified;
+        loaded++;
+      }
+
+      const invFile = files.find((f) => f.type === "inventory");
+      if (invFile) {
+        const file = await invFile.handle.getFile();
+        const json = await file.text();
+        const inv = parseInventory(json);
+        setInventory(inv.Items, inv.Timestamp, inv.Character);
+        storeUserFile("inventory", json).catch(() => {});
+        addStatus(`✓ Inventory loaded: ${inv.Items.length} items`);
+        lastInvTsRef.current = invFile.lastModified;
+        loaded++;
+      }
+
+      if (loaded === 0) addStatus("No character or inventory files found in folder");
+    } catch (e) {
+      addStatus(`✗ Error loading files: ${e}`);
+    }
+  }, [addStatus, setCharacter, setInventory]);
+
   /* ---- Polling effect ---- */
   useEffect(() => {
     if (!watching || !dirHandleRef.current || needsPermission) return;
@@ -292,6 +341,7 @@ export function useWebFolderWatch(
     requestPermission,
     pickFolder,
     disconnect,
+    loadLatest,
     watching,
     setWatching,
     watchStatus,
