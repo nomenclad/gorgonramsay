@@ -360,14 +360,15 @@ export function GourmandTracker() {
         <div className="flex gap-1 bg-bg-secondary rounded-lg p-1">
           {(
             [
-              { key: "all" as const, label: `All (${foods.length})` },
-              { key: "meal" as const, label: `Meals (${mealCount})` },
-              { key: "snack" as const, label: `Snacks (${snackCount})` },
+              { key: "all" as const, label: `All (${foods.length})`, tip: "Show all food types" },
+              { key: "meal" as const, label: `Meals (${mealCount})`, tip: "Show only meals (one meal slot per eating)" },
+              { key: "snack" as const, label: `Snacks (${snackCount})`, tip: "Show only snacks (one snack slot per eating)" },
             ]
-          ).map(({ key, label }) => (
+          ).map(({ key, label, tip }) => (
             <button
               key={key}
               onClick={() => setCategoryFilter(key)}
+              title={tip}
               className={`px-3 py-1.5 rounded text-sm transition-colors ${
                 categoryFilter === key
                   ? "bg-accent text-white"
@@ -381,17 +382,24 @@ export function GourmandTracker() {
 
         {/* Source type: All / Crafted / Foraged/Raw */}
         <div className="flex gap-1 bg-bg-secondary rounded-lg p-1">
-          {(["all", "crafted", "foraged"] as SourceTypeFilter[]).map((k) => (
+          {(
+            [
+              { key: "all" as SourceTypeFilter, label: "All", tip: "Show all foods regardless of source" },
+              { key: "crafted" as SourceTypeFilter, label: "Crafted", tip: "Show only foods made via a crafting recipe" },
+              { key: "foraged" as SourceTypeFilter, label: "Foraged / Raw", tip: "Show only raw foods eaten directly (no recipe needed)" },
+            ]
+          ).map(({ key, label, tip }) => (
             <button
-              key={k}
-              onClick={() => setSourceTypeFilter(k)}
-              className={`px-3 py-1.5 rounded text-sm transition-colors capitalize ${
-                sourceTypeFilter === k
+              key={key}
+              onClick={() => setSourceTypeFilter(key)}
+              title={tip}
+              className={`px-3 py-1.5 rounded text-sm transition-colors ${
+                sourceTypeFilter === key
                   ? "bg-accent text-white"
                   : "text-text-secondary hover:text-text-primary"
               }`}
             >
-              {k === "all" ? "All" : k === "crafted" ? "Crafted" : "Foraged / Raw"}
+              {label}
             </button>
           ))}
         </div>
@@ -399,17 +407,24 @@ export function GourmandTracker() {
         {/* Recipe knowledge: All / Learnable Now / Recipe Known */}
         {character && (
           <div className="flex gap-1 bg-bg-secondary rounded-lg p-1">
-            {(["all", "learnable", "known"] as RecipeKnowledgeFilter[]).map((k) => (
+            {(
+              [
+                { key: "all" as RecipeKnowledgeFilter, label: "All", tip: "Show all foods regardless of recipe status" },
+                { key: "learnable" as RecipeKnowledgeFilter, label: "Learnable Now", tip: "Show only foods with unknown recipes you have the skill level to learn" },
+                { key: "known" as RecipeKnowledgeFilter, label: "Recipe Known", tip: "Show only foods whose crafting recipe you have already learned" },
+              ]
+            ).map(({ key, label, tip }) => (
               <button
-                key={k}
-                onClick={() => setRecipeKnowledgeFilter(k)}
+                key={key}
+                onClick={() => setRecipeKnowledgeFilter(key)}
+                title={tip}
                 className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                  recipeKnowledgeFilter === k
+                  recipeKnowledgeFilter === key
                     ? "bg-accent text-white"
                     : "text-text-secondary hover:text-text-primary"
                 }`}
               >
-                {k === "all" ? "All" : k === "learnable" ? "Learnable Now" : "Recipe Known"}
+                {label}
               </button>
             ))}
           </div>
@@ -420,13 +435,14 @@ export function GourmandTracker() {
           <div className="flex flex-wrap gap-1.5">
             {(
               [
-                { key: "uneaten",    label: `Uneaten (${filteredUneatenCount})`, active: filterUneaten,     set: setFilterUneaten },
-                { key: "ingr",       label: "On Hand",       active: filterIngredients, set: setFilterIngredients },
+                { key: "uneaten", label: `Uneaten (${filteredUneatenCount})`, active: filterUneaten, set: setFilterUneaten, tip: "Show only foods you haven't eaten yet for Gourmand XP" },
+                { key: "ingr", label: "On Hand", active: filterIngredients, set: setFilterIngredients, tip: "Show only foods you have all ingredients to craft right now" },
               ] as const
-            ).map(({ key, label, active, set }) => (
+            ).map(({ key, label, active, set, tip }) => (
               <button
                 key={key}
                 onClick={() => set((v) => !v)}
+                title={tip}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                   active
                     ? "bg-accent/20 border-accent text-accent"
