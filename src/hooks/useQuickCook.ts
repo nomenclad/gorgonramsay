@@ -32,16 +32,21 @@ export function useQuickCook(onAfterQueue?: () => void): QuickCookResult {
     () => new Map(recipes.map((r) => [r.InternalName, r])),
     [recipes]
   );
-  const recipeInternalNames = useMemo(
-    () => new Set(recipes.map((r) => r.InternalName)),
-    [recipes]
-  );
+  const recipeByResultItem = useMemo(() => {
+    const m = new Map<number, { InternalName: string }>();
+    for (const r of recipes) {
+      for (const ri of r.ResultItems) {
+        if (!m.has(ri.ItemCode)) m.set(ri.ItemCode, r);
+      }
+    }
+    return m;
+  }, [recipes]);
   const foods = useMemo(
     () =>
       loaded && items.length > 0 && xpTables.length > 0
-        ? parseGourmandFoods(items, xpTables, recipeInternalNames)
+        ? parseGourmandFoods(items, xpTables, recipeByResultItem)
         : [],
-    [loaded, items, xpTables, recipeInternalNames]
+    [loaded, items, xpTables, recipeByResultItem]
   );
 
   const completions = character?.RecipeCompletions ?? {};
@@ -56,8 +61,8 @@ export function useQuickCook(onAfterQueue?: () => void): QuickCookResult {
     const sorted = [...foods]
       .filter((f) => f.hasTracking)
       .sort((a, b) => {
-        const aEaten = a.internalName in completions ? 1 : 0;
-        const bEaten = b.internalName in completions ? 1 : 0;
+        const aEaten = a.recipeInternalName! in completions ? 1 : 0;
+        const bEaten = b.recipeInternalName! in completions ? 1 : 0;
         if (aEaten !== bEaten) return aEaten - bEaten;
         return b.foodLevel - a.foodLevel;
       });
@@ -70,7 +75,7 @@ export function useQuickCook(onAfterQueue?: () => void): QuickCookResult {
       if (isMeal && result.meal) continue;
       if (isSnack && result.snack) continue;
 
-      const recipe = recipeByName.get(food.internalName);
+      const recipe = recipeByName.get(food.recipeInternalName!);
       if (!recipe) continue;
       if (!(recipe.InternalName in completions)) continue;
       const playerSkillLevel = character.Skills[recipe.Skill]?.Level ?? 0;

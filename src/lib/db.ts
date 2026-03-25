@@ -18,6 +18,7 @@ export class PgDatabase extends Dexie {
   cdnFiles!: Table<CachedFile>;
   metadata!: Table<CacheMetadata>;
   fsHandles!: Table<{ key: string; handle: FileSystemDirectoryHandle }>;
+  userFiles!: Table<{ key: string; content: string }>;
 
   constructor() {
     super("pgefficiency");
@@ -31,6 +32,13 @@ export class PgDatabase extends Dexie {
       cdnFiles: "key, version, filename",
       metadata: "key",
       fsHandles: "key",
+    });
+    // Version 4: persist user-uploaded character/inventory JSON
+    this.version(4).stores({
+      cdnFiles: "key, version, filename",
+      metadata: "key",
+      fsHandles: "key",
+      userFiles: "key",
     });
   }
 }
@@ -100,4 +108,18 @@ export async function getStoredDirectoryHandle(
 /** Remove a stored directory handle. */
 export async function clearDirectoryHandle(key: string): Promise<void> {
   await db.fsHandles.delete(key);
+}
+
+/** Store a user file (character or inventory JSON). */
+export async function storeUserFile(
+  key: string,
+  content: string,
+): Promise<void> {
+  await db.userFiles.put({ key, content });
+}
+
+/** Retrieve a user file. */
+export async function getUserFile(key: string): Promise<string | null> {
+  const row = await db.userFiles.get(key);
+  return row?.content ?? null;
 }

@@ -17,7 +17,7 @@ import {
   ALL_CDN_FILES,
   type DownloadProgress,
 } from "../../lib/cdnLoader";
-import { getCachedVersion } from "../../lib/db";
+import { getCachedVersion, storeUserFile } from "../../lib/db";
 import { useWebFolderWatch } from "../../hooks/useWebFolderWatch";
 
 interface ReportFile {
@@ -106,6 +106,7 @@ export function SettingsPage() {
       const json = await invoke<string>("read_file_content", { path: charFile.path });
       const sheet = parseCharacterSheet(json);
       setCharacter(sheet);
+      storeUserFile("character", json).catch(() => {});
       setAutoWatchStatus(`Character updated at ${new Date().toLocaleTimeString()}`);
     } catch { /* silent */ }
   }, [setCharacter]);
@@ -121,6 +122,7 @@ export function SettingsPage() {
       const json = await invoke<string>("read_file_content", { path: invFiles[0].path });
       const inv = parseInventory(json);
       setInventory(inv.Items, inv.Timestamp, inv.Character);
+      storeUserFile("inventory", json).catch(() => {});
       setAutoWatchStatus(`Inventory updated at ${new Date().toLocaleTimeString()}`);
     } catch { /* silent */ }
   }, [setInventory]);
@@ -291,6 +293,7 @@ export function SettingsPage() {
       const json = await invoke<string>("read_file_content", { path: charFile.path });
       const sheet = parseCharacterSheet(json);
       setCharacter(sheet);
+      storeUserFile("character", json).catch(() => {});
       addStatus(`✓ Character loaded: ${sheet.Character} @ ${sheet.ServerName} — ${Object.keys(sheet.Skills).length} skills`);
     } catch (e) {
       addStatus(`✗ Error loading character: ${e}`);
@@ -307,6 +310,7 @@ export function SettingsPage() {
       const json = await invoke<string>("read_file_content", { path: invFiles[0].path });
       const inv = parseInventory(json);
       setInventory(inv.Items, inv.Timestamp, inv.Character);
+      storeUserFile("inventory", json).catch(() => {});
       addStatus(`✓ Inventory loaded: ${inv.Items.length} items from "${invFiles[0].filename}"`);
     } catch (e) {
       addStatus(`✗ Error loading inventory: ${e}`);
@@ -346,10 +350,12 @@ export function SettingsPage() {
         } else if (file.name.startsWith("Character_")) {
           const sheet = parseCharacterSheet(text);
           setCharacter(sheet);
+          storeUserFile("character", text).catch(() => {});
           addStatus(`✓ Character loaded: ${sheet.Character} (drag-drop)`);
         } else if (file.name.includes("_items_")) {
           const inv = parseInventory(text);
           setInventory(inv.Items, inv.Timestamp, inv.Character);
+          storeUserFile("inventory", text).catch(() => {});
           addStatus(`✓ ${inv.Items.length} inventory items loaded (drag-drop)`);
         } else if (file.name === "sources_recipes.json") {
           const sources = parseSourcesData(text);
@@ -457,22 +463,12 @@ export function SettingsPage() {
         </div>
         {reportFiles.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {reportFiles.some((f) => f.file_type === "character") && (
-              <button
-                onClick={loadCharacter}
-                className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded text-sm transition-colors"
-              >
-                {character ? "↻ Reload Character" : "Load Character"}
-              </button>
-            )}
-            {reportFiles.some((f) => f.file_type === "inventory") && (
-              <button
-                onClick={loadInventory}
-                className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded text-sm transition-colors"
-              >
-                {inventoryTimestamp ? "↻ Reload Inventory" : "Load Latest Inventory"}
-              </button>
-            )}
+            <button
+              onClick={async () => { await loadCharacter(); await loadInventory(); }}
+              className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded text-sm transition-colors"
+            >
+              {character || inventoryTimestamp ? "↻ Reload Latest" : "Load Latest"}
+            </button>
           </div>
         )}
         {reportFiles.filter((f) => f.file_type === "inventory").length > 0 && (
@@ -558,6 +554,16 @@ export function SettingsPage() {
                 </div>
               </div>
 
+              {/* Load Latest button */}
+              {webFolder.folderName && !webFolder.needsPermission && (
+                <button
+                  onClick={webFolder.loadLatest}
+                  className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded text-sm transition-colors w-fit"
+                >
+                  {character || inventoryTimestamp ? "↻ Reload Latest" : "Load Latest"}
+                </button>
+              )}
+
               {/* Permission re-grant banner */}
               {webFolder.needsPermission && (
                 <div className="flex items-center gap-2 bg-gold/10 border border-gold/30 rounded-lg px-3 py-2 text-sm">
@@ -625,6 +631,7 @@ export function SettingsPage() {
                       const text = await file.text();
                       const sheet = parseCharacterSheet(text);
                       setCharacter(sheet);
+                      storeUserFile("character", text).catch(() => {});
                       addStatus(`✓ Character loaded: ${sheet.Character} @ ${sheet.ServerName}`);
                     } catch (err) {
                       addStatus(`✗ Failed to parse character: ${err}`);
@@ -650,6 +657,7 @@ export function SettingsPage() {
                       const text = await file.text();
                       const inv = parseInventory(text);
                       setInventory(inv.Items, inv.Timestamp, inv.Character);
+                      storeUserFile("inventory", text).catch(() => {});
                       addStatus(`✓ Inventory loaded: ${inv.Items.length} items`);
                     } catch (err) {
                       addStatus(`✗ Failed to parse inventory: ${err}`);
