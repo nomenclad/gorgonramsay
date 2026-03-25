@@ -14,6 +14,11 @@ export interface CacheMetadata {
   value: string;
 }
 
+export interface StoredHandle {
+  key: string;
+  handle: FileSystemDirectoryHandle;
+}
+
 export class PgDatabase extends Dexie {
   cdnFiles!: Table<CachedFile>;
   metadata!: Table<CacheMetadata>;
