@@ -124,9 +124,9 @@ export function RecipeBrowser() {
 
   const firstCraftCount = useMemo(
     () => visibleRecipes.filter(
-      (r) => knownRecipes.has(r.InternalName) && (character?.RecipeCompletions[r.InternalName] ?? 0) === 0
+      (r) => (character?.RecipeCompletions[r.InternalName] ?? 0) === 0
     ).length,
-    [visibleRecipes, knownRecipes, character]
+    [visibleRecipes, character]
   );
 
   const canLearnCount = useMemo(
@@ -178,7 +178,7 @@ export function RecipeBrowser() {
       results = results.filter((r) => !knownRecipes.has(r.InternalName));
     } else if (knowledgeFilter === "firstcraft") {
       results = results.filter(
-        (r) => knownRecipes.has(r.InternalName) && (character?.RecipeCompletions[r.InternalName] ?? 0) === 0
+        (r) => (character?.RecipeCompletions[r.InternalName] ?? 0) === 0
       );
     } else if (knowledgeFilter === "canlearn") {
       results = results.filter(

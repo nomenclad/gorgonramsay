@@ -22,11 +22,17 @@ export interface FoodItem {
   foodType: string; // "Meal", "Snack", "Instant-Snack", etc.
   effects: string[];
   /**
-   * True when a crafting recipe shares this food's InternalName.
-   * Only for these foods can eaten status be reliably inferred from
-   * RecipeCompletions. Raw/foraged foods with no recipe cannot be tracked.
+   * True when a crafting recipe produces this food item (matched via
+   * ResultItems.ItemCode). Only for these foods can eaten status be
+   * reliably inferred from RecipeCompletions.
    */
   hasTracking: boolean;
+  /**
+   * The recipe InternalName used as the key in RecipeCompletions.
+   * This may differ from the item's InternalName (e.g. recipe
+   * "CookingFood_MildCheddarCheese" vs item "MildCheddarCheese").
+   */
+  recipeInternalName: string | null;
 }
 
 /** Extract the numeric level and type label from FoodDesc (e.g. "Level 20 Meal" → {level:20, type:"Meal"}). */
@@ -39,7 +45,7 @@ function parseFoodDesc(foodDesc: string): { level: number; type: string } | null
 export function parseGourmandFoods(
   items: Item[],
   xpTables: XpTable[],
-  recipeInternalNames?: Set<string>
+  recipeByResultItem?: Map<number, { InternalName: string }>
 ): FoodItem[] {
   // Find the Gourmand XP table
   const gourmandTable = xpTables.find((t) => t.InternalName === "Gourmand");
@@ -63,6 +69,9 @@ export function parseGourmandFoods(
     const codeMatch = item.id.match(/(\d+)$/);
     const itemCode = codeMatch ? parseInt(codeMatch[1], 10) : 0;
 
+    // Match food to its crafting recipe via ResultItems.ItemCode
+    const matchedRecipe = recipeByResultItem?.get(itemCode) ?? null;
+
     foods.push({
       itemCode,
       internalName: item.InternalName,
@@ -72,9 +81,8 @@ export function parseGourmandFoods(
       foodLevel: level,
       foodType: type,
       effects: item.EffectDescs ?? [],
-      hasTracking: recipeInternalNames
-        ? recipeInternalNames.has(item.InternalName)
-        : false,
+      hasTracking: matchedRecipe !== null,
+      recipeInternalName: matchedRecipe?.InternalName ?? null,
     });
   }
 

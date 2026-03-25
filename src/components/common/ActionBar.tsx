@@ -27,10 +27,15 @@ export function ActionBar() {
   const { meal: quickMeal, snack: quickSnack, handleQuickCook } = useQuickCook(navigateToPlanner);
 
   // Data needed for RecipePlanner modal
-  const recipeInternalNames = useMemo(
-    () => new Set(recipes.map((r) => r.InternalName)),
-    [recipes]
-  );
+  const recipeByResultItem = useMemo(() => {
+    const m = new Map<number, { InternalName: string }>();
+    for (const r of recipes) {
+      for (const ri of r.ResultItems) {
+        if (!m.has(ri.ItemCode)) m.set(ri.ItemCode, r);
+      }
+    }
+    return m;
+  }, [recipes]);
   const recipeByName = useMemo(
     () => new Map(recipes.map((r) => [r.InternalName, r])),
     [recipes]
@@ -38,9 +43,9 @@ export function ActionBar() {
   const foods = useMemo(
     () =>
       loaded && items.length > 0 && xpTables.length > 0
-        ? parseGourmandFoods(items, xpTables, recipeInternalNames)
+        ? parseGourmandFoods(items, xpTables, recipeByResultItem)
         : [],
-    [loaded, items, xpTables, recipeInternalNames]
+    [loaded, items, xpTables, recipeByResultItem]
   );
   const completions = character?.RecipeCompletions ?? {};
 

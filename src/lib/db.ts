@@ -22,7 +22,8 @@ export interface StoredHandle {
 export class PgDatabase extends Dexie {
   cdnFiles!: Table<CachedFile>;
   metadata!: Table<CacheMetadata>;
-  directoryHandles!: Table<StoredHandle>;
+  fsHandles!: Table<{ key: string; handle: FileSystemDirectoryHandle }>;
+  userFiles!: Table<{ key: string; content: string }>;
 
   constructor() {
     super("pgefficiency");
@@ -31,11 +32,18 @@ export class PgDatabase extends Dexie {
       cdnFiles: "key, version, filename",
       metadata: "key",
     });
-    // Version 3: persist FileSystemDirectoryHandle for web folder access
+    // Version 3: persist FileSystemDirectoryHandle for web folder watch
     this.version(3).stores({
       cdnFiles: "key, version, filename",
       metadata: "key",
-      directoryHandles: "key",
+      fsHandles: "key",
+    });
+    // Version 4: persist user-uploaded character/inventory JSON
+    this.version(4).stores({
+      cdnFiles: "key, version, filename",
+      metadata: "key",
+      fsHandles: "key",
+      userFiles: "key",
     });
   }
 }
@@ -86,23 +94,37 @@ export async function clearCache(): Promise<void> {
   await Promise.all([db.cdnFiles.clear(), db.metadata.clear()]);
 }
 
-/** Retrieve a stored FileSystemDirectoryHandle by key, or null. */
-export async function getStoredDirectoryHandle(
-  key: string
-): Promise<FileSystemDirectoryHandle | null> {
-  const row = await db.directoryHandles.get(key);
-  return row?.handle ?? null;
-}
-
-/** Persist a FileSystemDirectoryHandle (structured-cloneable) in IndexedDB. */
+/** Store a FileSystemDirectoryHandle for the web folder watch feature. */
 export async function storeDirectoryHandle(
   key: string,
-  handle: FileSystemDirectoryHandle
+  handle: FileSystemDirectoryHandle,
 ): Promise<void> {
-  await db.directoryHandles.put({ key, handle });
+  await db.fsHandles.put({ key, handle });
+}
+
+/** Retrieve a previously stored FileSystemDirectoryHandle. */
+export async function getStoredDirectoryHandle(
+  key: string,
+): Promise<FileSystemDirectoryHandle | null> {
+  const row = await db.fsHandles.get(key);
+  return row?.handle ?? null;
 }
 
 /** Remove a stored directory handle. */
 export async function clearDirectoryHandle(key: string): Promise<void> {
-  await db.directoryHandles.delete(key);
+  await db.fsHandles.delete(key);
+}
+
+/** Store a user file (character or inventory JSON). */
+export async function storeUserFile(
+  key: string,
+  content: string,
+): Promise<void> {
+  await db.userFiles.put({ key, content });
+}
+
+/** Retrieve a user file. */
+export async function getUserFile(key: string): Promise<string | null> {
+  const row = await db.userFiles.get(key);
+  return row?.content ?? null;
 }

@@ -13,7 +13,6 @@ import { Pagination } from "../common/Pagination";
 import { ResizableTh, SortableResizableTh, FilterableResizableTh } from "../common/ResizableTh";
 import { useColumnFilters } from "../../hooks/useColumnFilters";
 
-type StatusFilter = "all" | "uneaten" | "owned";
 type CategoryFilter = "all" | "meal" | "snack";
 type SourceTypeFilter = "all" | "foraged" | "crafted";
 type SortKey = "name" | "gourmandLvl" | "xp" | "qty" | "status" | "cancraft";
@@ -47,7 +46,7 @@ export function GourmandTracker() {
     setCtxMenu({ x: e.clientX, y: e.clientY, name, isCrafted });
   }, []);
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [filterUneaten, setFilterUneaten] = useState(false);
   const [sourceTypeFilter, setSourceTypeFilter] = useState<SourceTypeFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [filterLearnable, setFilterLearnable] = useState(false);
@@ -65,13 +64,18 @@ export function GourmandTracker() {
   const gourmandLevel = gourmandSkill?.Level ?? 0;
   const completions = character?.RecipeCompletions ?? {};
 
-  // Set of recipe InternalNames — used to determine if eating can be tracked via RecipeCompletions.
-  const recipeInternalNames = useMemo(
-    () => new Set(recipes.map((r) => r.InternalName)),
-    [recipes]
-  );
+  // Map: ItemCode → first recipe that produces it (for matching foods to recipes)
+  const recipeByResultItem = useMemo(() => {
+    const m = new Map<number, { InternalName: string }>();
+    for (const r of recipes) {
+      for (const ri of r.ResultItems) {
+        if (!m.has(ri.ItemCode)) m.set(ri.ItemCode, r);
+      }
+    }
+    return m;
+  }, [recipes]);
 
-  // Map from food InternalName → full Recipe object (for level/skill lookup and source labels)
+  // Map from recipe InternalName → full Recipe object (for level/skill lookup and source labels)
   const recipeByName = useMemo(
     () => new Map(recipes.map((r) => [r.InternalName, r])),
     [recipes]
@@ -80,11 +84,11 @@ export function GourmandTracker() {
   // Parse foods from items + xpTables
   const isFae = character?.Race?.toLowerCase() === "fae";
   const foods = useMemo(() => {
-    const all = parseGourmandFoods(items, xpTables, recipeInternalNames);
+    const all = parseGourmandFoods(items, xpTables, recipeByResultItem);
     if (isFae) return all;
     // Filter out Fae-only foods for non-Fae characters
     return all.filter((f) => !f.itemName.startsWith("Fairy "));
-  }, [items, xpTables, recipeInternalNames, isFae]);
+  }, [items, xpTables, recipeByResultItem, isFae]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -103,19 +107,19 @@ export function GourmandTracker() {
 
   // Global counts for the stat cards (unaffected by any active filter)
   const uneatenCount = useMemo(
-    () => foods.filter((f) => f.hasTracking && !completions[f.internalName]).length,
+    () => foods.filter((f) => f.hasTracking && !completions[f.recipeInternalName!]).length,
     [foods, completions]
   );
   const ownedUneatenCount = useMemo(
     () => foods.filter(
-      (f) => f.hasTracking && !completions[f.internalName] && getItemQuantity(f.itemCode) > 0
+      (f) => f.hasTracking && !completions[f.recipeInternalName!] && getItemQuantity(f.itemCode) > 0
     ).length,
     [foods, completions, getItemQuantity, aggregated]
   );
 
   // Helper: check if all recipe ingredients are in inventory
   const hasAllIngredients = (food: FoodItem) => {
-    const recipe = recipeByName.get(food.internalName);
+    const recipe = recipeByName.get(food.recipeInternalName!);
     if (!recipe) return false;
     return recipe.Ingredients.every((ing) => getItemQuantity(ing.ItemCode) >= ing.StackSize);
   };
@@ -123,11 +127,11 @@ export function GourmandTracker() {
   // Helper: compute "can craft" rank for a food (0=can craft, 1=learn first/missing, 2=skill too low, 3=no recipe)
   const getCraftRank = (food: FoodItem): number => {
     if (!food.hasTracking) return 3;
-    const recipe = recipeByName.get(food.internalName);
+    const recipe = recipeByName.get(food.recipeInternalName!);
     if (!recipe) return 3;
     const skillLevel = character?.Skills[recipe.Skill]?.Level ?? 0;
     if (skillLevel < recipe.SkillLevelReq) return 2;
-    const isKnown = food.internalName in completions;
+    const isKnown = food.recipeInternalName! in completions;
     if (!isKnown) return 1;
     if (!hasAllIngredients(food)) return 1;
     return 0;
@@ -140,7 +144,7 @@ export function GourmandTracker() {
     // Filter by global selected skill
     if (selectedSkill) {
       results = results.filter((f) => {
-        const sk = recipeByName.get(f.internalName)?.Skill;
+        const sk = recipeByName.get(f.recipeInternalName!)?.Skill;
         if (!sk) return false;
         return sk === selectedSkill;
       });
@@ -175,14 +179,14 @@ export function GourmandTracker() {
       results = results.filter((f) => {
         if (!f.hasTracking) return false;
         // Must not already be known
-        if (f.internalName in completions) return false;
-        const recipe = recipeByName.get(f.internalName);
+        if (f.recipeInternalName! in completions) return false;
+        const recipe = recipeByName.get(f.recipeInternalName!);
         if (!recipe) return false;
         return (character.Skills[recipe.Skill]?.Level ?? 0) >= recipe.SkillLevelReq;
       });
     }
     if (filterKnown) {
-      results = results.filter((f) => f.hasTracking && f.internalName in completions);
+      results = results.filter((f) => f.hasTracking && f.recipeInternalName! in completions);
     }
     if (filterIngredients) {
       results = results.filter((f) => f.hasTracking && hasAllIngredients(f));
@@ -197,17 +201,13 @@ export function GourmandTracker() {
 
   // Badge counts for the status filter buttons — reflects current skill/category/etc. filters
   const filteredUneatenCount = useMemo(
-    () => preStatusFiltered.filter((f) => f.hasTracking && !completions[f.internalName]).length,
+    () => preStatusFiltered.filter((f) => f.hasTracking && !completions[f.recipeInternalName!]).length,
     [preStatusFiltered, completions]
-  );
-  const filteredOwnedCount = useMemo(
-    () => preStatusFiltered.filter((f) => getItemQuantity(f.itemCode) > 0).length,
-    [preStatusFiltered, getItemQuantity, aggregated]
   );
 
   // Unique filter options for column dropdowns
   const canCraftLabel = useCallback((food: FoodItem): string => {
-    const recipe = recipeByName.get(food.internalName);
+    const recipe = recipeByName.get(food.recipeInternalName!);
     if (!recipe) return "No recipe";
     if (!character) return "Unknown";
     const skillLvl = character.Skills[recipe.Skill]?.Level ?? 0;
@@ -223,7 +223,7 @@ export function GourmandTracker() {
   );
   const eatenOptions = ["Yes", "No"];
   const getFoodSkill = useCallback((food: FoodItem): string => {
-    const recipe = recipeByName.get(food.internalName);
+    const recipe = recipeByName.get(food.recipeInternalName!);
     return recipe ? formatSkillName(recipe.Skill) : "—";
   }, [recipeByName]);
 
@@ -233,7 +233,7 @@ export function GourmandTracker() {
   );
 
   const getReadiness = useCallback((food: FoodItem): string => {
-    const isEaten = food.hasTracking && food.internalName in completions;
+    const isEaten = food.hasTracking && food.recipeInternalName! in completions;
     const qty = getItemQuantity(food.itemCode);
     if (!isEaten && qty > 0) return "Ready to Eat";
     if (isEaten) return "Eaten";
@@ -245,11 +245,9 @@ export function GourmandTracker() {
   const filtered = useMemo(() => {
     let results = preStatusFiltered;
 
-    // Apply status filter on top of everything else
-    if (statusFilter === "uneaten") {
-      results = results.filter((f) => f.hasTracking && !completions[f.internalName]);
-    } else if (statusFilter === "owned") {
-      results = results.filter((f) => getItemQuantity(f.itemCode) > 0);
+    // Apply uneaten filter
+    if (filterUneaten) {
+      results = results.filter((f) => f.hasTracking && !completions[f.recipeInternalName!]);
     }
 
     // Column dropdown filters
@@ -258,7 +256,7 @@ export function GourmandTracker() {
     }
     if (colFilters.isFiltered("eaten")) {
       results = results.filter((f) => {
-        const eaten = f.hasTracking && f.internalName in completions ? "Yes" : "No";
+        const eaten = f.hasTracking && f.recipeInternalName! in completions ? "Yes" : "No";
         return colFilters.passesFilter("eaten", eaten);
       });
     }
@@ -281,7 +279,7 @@ export function GourmandTracker() {
       else if (sortKey === "status") {
         const rank = (f: typeof a) => {
           if (!f.hasTracking) return 2;
-          return f.internalName in completions ? 0 : 1;
+          return f.recipeInternalName! in completions ? 0 : 1;
         };
         diff = rank(a) - rank(b);
       }
@@ -290,7 +288,7 @@ export function GourmandTracker() {
       }
       return sortDir === "asc" ? diff : -diff;
     });
-  }, [preStatusFiltered, statusFilter, sortKey, sortDir, completions, getItemQuantity, aggregated, colFilters, canCraftLabel, getFoodSkill, getReadiness]);
+  }, [preStatusFiltered, filterUneaten, sortKey, sortDir, completions, getItemQuantity, aggregated, colFilters, canCraftLabel, getFoodSkill, getReadiness]);
 
   // Reset page when filters change the result set
   useEffect(() => { setPage(0); }, [filtered.length]);
@@ -370,32 +368,12 @@ export function GourmandTracker() {
           ))}
         </div>
 
-        {/* Status: All / In Inventory / Uneaten */}
-        <div className="flex gap-1 bg-bg-secondary rounded-lg p-1">
-          {(["all", "owned", "uneaten"] as StatusFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              className={`px-3 py-1.5 rounded text-sm transition-colors capitalize ${
-                statusFilter === f
-                  ? "bg-accent text-white"
-                  : "text-text-secondary hover:text-text-primary"
-              }`}
-            >
-              {f === "uneaten"
-                ? `Uneaten (${filteredUneatenCount})`
-                : f === "owned"
-                ? `In Inventory (${filteredOwnedCount})`
-                : "All"}
-            </button>
-          ))}
-        </div>
-
         {/* Toggle filter chips */}
         {character && (
           <div className="flex flex-wrap gap-1.5">
             {(
               [
+                { key: "uneaten",    label: `Uneaten (${filteredUneatenCount})`, active: filterUneaten,     set: setFilterUneaten },
                 { key: "learnable",  label: "Learnable Now", active: filterLearnable,  set: setFilterLearnable },
                 { key: "known",      label: "Recipe Known",  active: filterKnown,      set: setFilterKnown },
                 { key: "ingr",       label: "On Hand",       active: filterIngredients, set: setFilterIngredients },
@@ -454,8 +432,8 @@ export function GourmandTracker() {
           <tbody>
             {filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((food) => {
               const qty = getItemQuantity(food.itemCode);
-              const eaten = !!completions[food.internalName];
-              const recipe = recipeByName.get(food.internalName);
+              const eaten = !!completions[food.recipeInternalName!];
+              const recipe = recipeByName.get(food.recipeInternalName!);
               const sourceLabels = recipe
                 ? getRecipeSourceLabels(recipe.id, getItemByCode)
                 : [];
@@ -468,7 +446,7 @@ export function GourmandTracker() {
                 if (craftRank === 0) {
                   canCraftBadge = <span className="text-xs bg-success/10 text-success px-1.5 py-0.5 rounded font-medium">Yes</span>;
                 } else if (craftRank === 1) {
-                  const isKnown = food.internalName in completions;
+                  const isKnown = food.recipeInternalName! in completions;
                   if (isKnown && recipe) {
                     // has recipe + skill + known but missing items
                     canCraftBadge = <span className="text-xs bg-amber-400/10 text-amber-400 px-1.5 py-0.5 rounded font-medium">Missing Items</span>;
@@ -590,7 +568,7 @@ export function GourmandTracker() {
                     <span className="relative group">
                       {!food.hasTracking ? (
                         <span className="text-text-muted text-xs italic">No recipe</span>
-                      ) : food.internalName in completions ? (
+                      ) : food.recipeInternalName! in completions ? (
                         <span className="text-success text-xs bg-success/10 px-1.5 py-0.5 rounded">Known ✓</span>
                       ) : (
                         <span className="text-text-muted text-xs bg-bg-secondary px-1.5 py-0.5 rounded">Unknown</span>
@@ -627,9 +605,7 @@ export function GourmandTracker() {
         </table>
         {filtered.length === 0 && (
           <div className="text-center py-8 text-text-muted text-sm">
-            {statusFilter === "owned"
-              ? "No Gourmand foods in your inventory."
-              : "No foods match this filter."}
+            No foods match this filter.
           </div>
         )}
       </div>
