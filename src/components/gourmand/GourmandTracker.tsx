@@ -107,12 +107,12 @@ export function GourmandTracker() {
 
   // Global counts for the stat cards (unaffected by any active filter)
   const uneatenCount = useMemo(
-    () => foods.filter((f) => f.hasTracking && !completions[f.recipeInternalName!]).length,
+    () => foods.filter((f) => f.hasTracking && !(f.recipeInternalName! in completions)).length,
     [foods, completions]
   );
   const ownedUneatenCount = useMemo(
     () => foods.filter(
-      (f) => f.hasTracking && !completions[f.recipeInternalName!] && getItemQuantity(f.itemCode) > 0
+      (f) => f.hasTracking && !(f.recipeInternalName! in completions) && getItemQuantity(f.itemCode) > 0
     ).length,
     [foods, completions, getItemQuantity, aggregated]
   );
@@ -201,7 +201,7 @@ export function GourmandTracker() {
 
   // Badge counts for the status filter buttons — reflects current skill/category/etc. filters
   const filteredUneatenCount = useMemo(
-    () => preStatusFiltered.filter((f) => f.hasTracking && !completions[f.recipeInternalName!]).length,
+    () => preStatusFiltered.filter((f) => f.hasTracking && !(f.recipeInternalName! in completions)).length,
     [preStatusFiltered, completions]
   );
 
@@ -432,7 +432,7 @@ export function GourmandTracker() {
           <tbody>
             {filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((food) => {
               const qty = getItemQuantity(food.itemCode);
-              const eaten = !!completions[food.recipeInternalName!];
+              const eaten = food.hasTracking && food.recipeInternalName! in completions;
               const recipe = recipeByName.get(food.recipeInternalName!);
               const sourceLabels = recipe
                 ? getRecipeSourceLabels(recipe.id, getItemByCode)
