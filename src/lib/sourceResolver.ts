@@ -1,3 +1,22 @@
+/**
+ * Item and recipe source resolver — determines where items can be acquired
+ * and where recipes can be learned in Project Gorgon.
+ *
+ * Uses sources_items.json and sources_recipes.json from the CDN to map items
+ * and recipes to their acquisition methods (vendors, crafting, monsters, quests,
+ * NPC training, scroll items, etc.).
+ *
+ * The module maintains three pieces of state loaded at startup:
+ *  - sourcesData:       item acquisition sources (vendors, drops, gathering, etc.)
+ *  - recipeSourcesData: recipe learning sources (trainers, scrolls, quests, etc.)
+ *  - npcNames:          NPC display names and area locations for friendly labels
+ *
+ * How to change:
+ *  - To handle a new source type from the CDN data, add a case to the switch
+ *    statements in `getAcquisitionMethods()` or `getRecipeSourceLabels()`.
+ *  - The priority order in `getBestMethod()` controls which source is shown
+ *    when only one can be displayed (e.g., tooltips).
+ */
 import type { SourcesData } from "../types";
 
 export type AcquisitionMethod =

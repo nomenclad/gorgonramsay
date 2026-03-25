@@ -1,16 +1,39 @@
+/**
+ * Parse a user-imported inventory JSON export.
+ *
+ * The inventory JSON comes from the Project Gorgon in-game /exportinventory
+ * command. It lists every item across all storage vaults with quantities.
+ *
+ * To handle game-data format changes:
+ *   - Add new optional fields to InventoryItem in types/inventory.ts.
+ *   - The parser validates the top-level shape but trusts individual item
+ *     fields — add per-item validation here if new required fields appear.
+ */
 import type {
   InventoryExport,
   InventoryItem,
   AggregatedItem,
 } from "../../types/inventory";
 
+/**
+ * Parse and validate an inventory export JSON string.
+ * Throws on fundamentally invalid JSON; gracefully handles missing Items array.
+ */
 export function parseInventory(json: string): InventoryExport {
-  const parsed = JSON.parse(json) as InventoryExport;
+  const parsed = JSON.parse(json);
+
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Invalid inventory data: expected a JSON object");
+  }
   // Guard against malformed or incomplete exports
   if (!Array.isArray(parsed.Items)) parsed.Items = [];
-  return parsed;
+  return parsed as InventoryExport;
 }
 
+/**
+ * Aggregate inventory items by TypeID across all storage vaults.
+ * Combines duplicate item stacks into a single entry with per-vault quantity breakdowns.
+ */
 export function aggregateInventory(items: InventoryItem[]): AggregatedItem[] {
   const grouped = new Map<
     number,

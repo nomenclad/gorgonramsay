@@ -4,6 +4,12 @@
  *
  * Key format examples: "*AccountStorage_Serbule", "DalvosChest", "NPC_Ashk"
  * Display format:      "Serbule Transfer Chest (Serbule)"
+ *
+ * How to change:
+ *  - If the game adds zones with display names that differ from their CDN keys,
+ *    add an entry to ZONE_ALIASES to map the CDN name to the desired display name.
+ *  - The special key "__on_person__" is used for saddlebag items — if new special
+ *    keys are added to the inventory export, handle them in `formatVaultName()`.
  */
 
 interface RawVaultEntry {

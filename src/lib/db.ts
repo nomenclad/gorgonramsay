@@ -1,12 +1,33 @@
+/**
+ * IndexedDB persistence layer using Dexie.js.
+ *
+ * Stores four tables in the "pgefficiency" database:
+ *  - cdnFiles:   Cached game-data JSON files from the Project Gorgon CDN, keyed by version + filename.
+ *  - metadata:   Key-value pairs (currently just the cached CDN version number).
+ *  - fsHandles:  Persisted FileSystemDirectoryHandle for the web folder-watch feature.
+ *  - userFiles:  User-uploaded character and inventory JSON blobs.
+ *
+ * Schema versioning: Dexie handles migrations automatically. Each new table or index
+ * change bumps the version number in the constructor. To add a new table, add a new
+ * `this.version(N+1).stores({...})` block — Dexie replays all version steps in order.
+ *
+ * Eviction strategy: When the CDN version changes, `evictOldVersions()` deletes all
+ * cdnFiles rows whose version doesn't match, so only one version is cached at a time.
+ *
+ * How to change:
+ *  - To add a new table: bump the version number and add the table to the stores object.
+ *  - To add an index to an existing table: bump the version and include the new index.
+ *  - Never remove or rename existing version blocks — Dexie needs them for upgrades.
+ */
 import Dexie, { type Table } from "dexie";
 
 /** Raw cached CDN file, keyed by "v{version}/{filename}" e.g. "v465/items.json" */
 export interface CachedFile {
-  key: string;    // "v465/items.json"
-  version: number;
-  filename: string;
-  content: string; // raw JSON text
-  cachedAt: number; // unix ms
+  key: string;    // composite key: "v{version}/{filename}" — used as primary key in IndexedDB
+  version: number; // CDN version number — indexed so we can evict old versions in bulk
+  filename: string; // bare filename like "items.json" — indexed for lookup by name
+  content: string; // raw JSON text, stored as-is (not parsed) to avoid serialization overhead
+  cachedAt: number; // unix ms — retained for debugging, not currently used for eviction
 }
 
 export interface CacheMetadata {

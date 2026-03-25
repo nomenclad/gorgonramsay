@@ -1,3 +1,9 @@
+/**
+ * Table header cells with drag-to-resize and optional sort/filter support.
+ * Exports three variants: ResizableTh (base), SortableResizableTh (sort arrows + click),
+ * and FilterableResizableTh (column filter dropdown, no sorting).
+ * Pair with the useResizableColumns hook to persist column widths.
+ */
 import React from "react";
 import { ColumnFilterDropdown } from "./ColumnFilterDropdown";
 

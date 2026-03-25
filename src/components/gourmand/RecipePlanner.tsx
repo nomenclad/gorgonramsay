@@ -1,3 +1,9 @@
+/**
+ * Recipe planning/queue management modal for the Gourmand tab ("Recipe Hunter").
+ * Identifies unknown food recipes the character can learn at their current skill level,
+ * then groups them by source: NPC trainers, recipe scrolls, quests, and NPC relationships.
+ * Includes NPC favor level checks to warn when favor may be too low to train.
+ */
 import { useMemo } from "react";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useCharacterStore } from "../../stores/characterStore";

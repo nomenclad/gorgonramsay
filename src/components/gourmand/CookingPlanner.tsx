@@ -1,3 +1,9 @@
+/**
+ * Cooking planner sub-component within the Gourmand tab. Resolves crafting chains
+ * for planned recipes, builds vault-gathering routes, and renders a modal with
+ * categorized ingredient lists (vendor, gather, craft, storage).
+ * Distinct from planner/CookingPlanner.tsx which is the main Planner tab container.
+ */
 import { useState, useMemo, useCallback } from "react";
 import { useGameDataStore, type RecipeIndexes } from "../../stores/gameDataStore";
 import { useInventoryStore } from "../../stores/inventoryStore";

@@ -1,6 +1,8 @@
 /**
- * Shared top-right action bar with Quick Cook, Recipe Hunter, and Plan Cooking buttons.
- * Rendered on every tab page.
+ * Floating action bar with Quick Cook, Recipe Hunter, and Plan Cooking buttons.
+ * Displayed in the tab bar on every page. Uses useQuickCook to find the best
+ * Gourmand meal/snack craftable from current inventory.
+ * To add new quick-action buttons, append to the button list in the returned JSX.
  */
 import { useState, useMemo } from "react";
 import { useGameDataStore } from "../../stores/gameDataStore";

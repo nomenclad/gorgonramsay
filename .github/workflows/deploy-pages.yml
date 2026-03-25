@@ -1,15 +1,34 @@
+# Deploy to GitHub Pages — builds the web version and publishes static files.
+#
+# This workflow:
+#   1. Installs dependencies (npm ci).
+#   2. Pre-fetches game data from the Project Gorgon CDN via scripts/fetch-cdn-data.mjs.
+#      The fetched JSON files are written to public/cdn-data/ so they ship as static
+#      assets, avoiding CORS issues at runtime. If the CDN is down during the build,
+#      the fetch script will fail and the workflow will stop — this prevents deploying
+#      with missing game data.
+#   3. Builds the web bundle (npm run build:web → dist-web/).
+#   4. Uploads and deploys to GitHub Pages.
+#
+# How to change:
+#   - To update CDN URLs: edit src/lib/config.ts and scripts/fetch-cdn-data.mjs.
+#   - To add new CDN data files: add them to the FILES array in scripts/fetch-cdn-data.mjs
+#     and to ALL_CDN_FILES in src/lib/cdnLoader.ts.
+#   - To change the deploy branch: edit the branches list under `on.push`.
+
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [main, master]
-  workflow_dispatch:
+  workflow_dispatch: # Allow manual triggers from the Actions tab
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
+# Cancel any in-progress deploy if a new push arrives
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -27,9 +46,12 @@ jobs:
 
       - run: npm ci
 
+      # Fetch game data from the PG CDN so the web app can load it as static files
+      # instead of making cross-origin requests at runtime.
       - name: Fetch CDN data for static hosting
         run: node scripts/fetch-cdn-data.mjs
 
+      # Build with BUILD_TARGET=web to set the correct base path and exclude Tauri packages
       - run: npm run build:web
 
       - uses: actions/upload-pages-artifact@v3

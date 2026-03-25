@@ -1,3 +1,8 @@
+/**
+ * Page navigation controls for data tables. Provides prev/next buttons,
+ * a direct page-number input, and a display of the current range (e.g. "1-50 of 200").
+ * Uses 0-based page indexing internally; displays 1-based to the user.
+ */
 import { useState } from "react";
 
 interface Props {

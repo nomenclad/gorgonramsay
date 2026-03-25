@@ -1,3 +1,8 @@
+/**
+ * Route planning sub-tab within the planner. Builds a zone-by-zone travel route
+ * from storage stops, vendor purchases, foraging, gardening, and cooking actions.
+ * Zones are ordered with non-cooking zones first, gardening second-to-last, cooking last.
+ */
 import { useMemo } from "react";
 import { useCharacterStore } from "../../stores/characterStore";
 import { getRecipeSourceLabels } from "../../lib/sourceResolver";

@@ -1,3 +1,9 @@
+/**
+ * Types for character export data from the in-game /exportcharacter command.
+ *
+ * The export includes skill levels, recipe completions, and NPC favor.
+ * If new export fields appear, add them as optional properties here.
+ */
 export interface SkillState {
   Level: number;
   BonusLevels: number;
@@ -14,6 +20,11 @@ export interface CharacterSheet {
   ReportVersion: number;
   Race: string;
   Skills: Record<string, SkillState>;
+  /**
+   * Keys are recipe InternalNames (e.g. "CookingFood_MildCheddarCheese"),
+   * values are completion counts. Used to determine recipe knowledge and
+   * eaten status for Gourmand tracking.
+   */
   RecipeCompletions: Record<string, number>;
   /**
    * NPC favor levels from the character export.

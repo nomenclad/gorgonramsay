@@ -1,3 +1,8 @@
+/**
+ * Hover tooltip showing item details: inventory locations, vendor sources,
+ * craftable recipes, and other acquisition methods (monster drops, gathering, fishing).
+ * Rendered as a fixed-position portal on mouse enter; hidden on mouse leave.
+ */
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { getAcquisitionMethods, getRecipeSourceLabels, type AcquisitionMethod, type RecipeSourceLabel } from "../../lib/sourceResolver";

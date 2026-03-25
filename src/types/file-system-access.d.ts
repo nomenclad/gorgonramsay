@@ -1,7 +1,9 @@
 /**
  * Type declarations for the File System Access API.
- * These APIs are available in Chromium-based browsers but not yet
- * in the default TypeScript DOM lib.
+ *
+ * These supplement missing browser API types — the File System Access API
+ * is available in Chromium-based browsers but not yet included in
+ * TypeScript's default DOM lib. Remove once TS adds native support.
  */
 
 interface FileSystemHandlePermissionDescriptor {

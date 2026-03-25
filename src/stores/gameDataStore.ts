@@ -1,3 +1,25 @@
+/**
+ * @module gameDataStore
+ *
+ * Central store for all CDN-sourced game data: recipes, items, XP tables,
+ * NPC sources, storage vaults, and areas. Also holds pre-built indexes
+ * (Maps keyed by skill, internal name, item code, etc.) for O(1) lookups
+ * instead of scanning arrays.
+ *
+ * **Data origin:** Fetched from the PG CDN at startup by `cdnLoader.ts`,
+ * parsed/indexed by `hydrate.ts`, then pushed into this store via setters.
+ * Once loaded, the raw JSON is cached in IndexedDB so subsequent page
+ * loads can skip the network round-trip.
+ *
+ * **Persistence:** IndexedDB (via `lib/db.ts`). The store itself is
+ * ephemeral Zustand state that gets re-hydrated on every page load.
+ *
+ * **How to extend:**
+ * 1. Add a new field + setter to `GameDataState`.
+ * 2. Parse the new CDN data in `hydrate.ts`.
+ * 3. Fetch it in `cdnLoader.ts` and call the setter.
+ * 4. If lookups are needed, add an index Map and populate it in the setter.
+ */
 import { create } from "zustand";
 import type { Recipe, Item, XpTable, SourcesData } from "../types";
 import { loadSourcesData, loadNpcNames, loadRecipeSourcesData } from "../lib/sourceResolver";

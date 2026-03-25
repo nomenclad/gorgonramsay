@@ -1,10 +1,28 @@
 /**
+ * @module useWebFolderWatch
+ *
  * Web-only folder watch using the File System Access API.
  * Mirrors the Tauri auto-watch behaviour: polls the selected directory
  * every 5 seconds and reloads character / inventory when files change.
  *
  * Chrome / Edge only — falls back gracefully (hook returns
  * `supported: false` on unsupported browsers).
+ *
+ * **Data flow:** User picks a folder via `pickFolder()` -> the directory
+ * handle is persisted to IndexedDB so it survives reloads -> `loadLatest()`
+ * reads the newest Character_*.json and *_items_*.json files -> parsed
+ * data is pushed into `characterStore` and `inventoryStore` -> raw JSON
+ * is also saved to IndexedDB `userFiles` for offline hydration.
+ *
+ * **Persistence:** The directory handle is stored in IndexedDB. The
+ * auto-watch preference (`watching`) is stored in localStorage. On
+ * reload, the hook restores the handle and checks if permission is
+ * still granted; if not, it sets `needsPermission` so the UI can
+ * prompt the user to re-grant with a click (browser security requires
+ * a user gesture).
+ *
+ * **How to extend:** To watch a new file type, add a case to
+ * `classifyFile()` and handle it in `loadLatest()` / the polling effect.
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useCharacterStore } from "../stores/characterStore";

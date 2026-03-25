@@ -1,3 +1,8 @@
+/**
+ * Top navigation tab bar with drag-to-reorder support via pointer events.
+ * Tab order is persisted to localStorage. Includes an unlock/lock toggle
+ * and a reset button. Also renders the ActionBar in the right side.
+ */
 import { useState, useRef } from "react";
 import { ActionBar } from "../common/ActionBar";
 

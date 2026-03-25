@@ -1,3 +1,24 @@
+/**
+ * Multi-step crafting chain resolver.
+ *
+ * In Project Gorgon, many recipes require ingredients that are themselves crafted
+ * from other recipes (e.g., making Cheese requires Milk, which requires a Milking
+ * recipe). This module builds a tree of ingredient dependencies so the UI can
+ * show the full crafting chain.
+ *
+ * The resolver works recursively: for each ingredient the player doesn't have
+ * enough of, it looks up recipes that produce that item, picks the simplest one
+ * (fewest ingredients), and recurses into its ingredients.
+ *
+ * Cycle prevention: a `visited` set tracks item codes already being resolved
+ * in the current branch to avoid infinite loops (e.g., recipe A needs item B,
+ * recipe for B needs item A).
+ *
+ * How to change:
+ *  - maxDepth (default 3) limits recursion — increase if deeper chains are needed.
+ *  - The "simplest recipe" heuristic (fewest ingredients) could be replaced with
+ *    a cost-based or XP-based selection strategy.
+ */
 import type { Recipe } from "../types";
 
 export interface IngredientNode {
@@ -35,17 +56,20 @@ export function resolveIngredientTree(
     let craftingRecipe: Recipe | undefined;
     let children: IngredientNode[] = [];
 
+    // Only recurse if we don't have enough AND haven't visited this item (cycle guard)
     if (!visited.has(ing.ItemCode) && have < needed) {
       const producers = byResultItem.get(ing.ItemCode);
       if (producers && producers.length > 0) {
-        // Pick simplest recipe (fewest ingredients)
+        // Pick simplest recipe (fewest ingredients) to keep the tree manageable
         craftingRecipe = producers.reduce((a, b) =>
           a.Ingredients.length <= b.Ingredients.length ? a : b
         );
 
+        // Clone visited set per branch so sibling ingredients don't block each other
         const newVisited = new Set(visited);
         newVisited.add(ing.ItemCode);
 
+        // Only need to craft enough to cover the deficit
         const subCraftCount = Math.ceil((needed - have) / ing.StackSize);
         children = resolveIngredientTree(
           craftingRecipe,

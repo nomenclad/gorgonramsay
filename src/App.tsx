@@ -1,3 +1,16 @@
+/**
+ * Root application component.
+ *
+ * On mount: restores the saved theme from localStorage and hydrates all cached
+ * game/character data from IndexedDB. Renders a tab-based UI where all tabs are
+ * mounted simultaneously but hidden via CSS — this keeps each tab's React state
+ * alive across tab switches (no re-mount flicker).
+ *
+ * How to add a new tab:
+ *   1. Add an entry to DEFAULT_TABS below.
+ *   2. Import the component and add a `<div className={...}>` in the JSX.
+ *   3. If the tab needs full-height layout (no scroll wrapper), add its ID to fullHeightTabs.
+ */
 import { useEffect, useState } from "react";
 import "./index.css";
 import { hydrateFromCache } from "./lib/hydrate";
@@ -40,7 +53,7 @@ function loadTabOrder(): Tab[] {
       const ordered = ids.map((id) => map.get(id)).filter(Boolean) as Tab[];
       return ordered;
     }
-  } catch {}
+  } catch (e) { console.warn("Failed to load saved tab order:", e); }
   return DEFAULT_TABS;
 }
 

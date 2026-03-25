@@ -1,3 +1,8 @@
+/**
+ * Modal popup showing detailed info for a selected ingredient: inventory breakdown,
+ * acquisition sources (vendors, fishing, gardening, crafting, monster drops),
+ * and all food recipes that use this ingredient. Rendered as a portal overlay.
+ */
 import { createPortal } from "react-dom";
 import { useEffect } from "react";
 import { useGameDataStore } from "../../stores/gameDataStore";

@@ -1,3 +1,9 @@
+/**
+ * Gold/council efficiency analysis for recipes. Compares recipes by cost-per-XP,
+ * ingredient cost, and profit per craft for the selected skill.
+ * Recipes are filtered to the character's current level +10.
+ * To add new efficiency metrics, extend the recipeGoldEfficiency return type.
+ */
 import { useState, useMemo, useCallback } from "react";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useInventoryStore } from "../../stores/inventoryStore";

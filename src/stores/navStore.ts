@@ -1,3 +1,21 @@
+/**
+ * @module navStore
+ *
+ * Manages UI navigation state: active tab, pending cross-tab searches,
+ * ingredient/recipe filters, and the global skill filter.
+ *
+ * **Data origin:** Pure UI state set by user interactions (tab clicks,
+ * "view in recipes" links, skill sidebar selections, etc.).
+ *
+ * **Persistence:** Ephemeral — all state resets on page reload, with the
+ * sole exception of `skillSidebarOpen` which is persisted to localStorage
+ * so the sidebar remembers its collapsed/expanded state.
+ *
+ * **How to extend:** Add a new `pending*` field + navigate/clear action
+ * pair to enable cross-tab deep-linking for a new feature. Consuming
+ * components should call the `clear*` action after reading the pending
+ * value to avoid stale navigations.
+ */
 import { create } from "zustand";
 
 /**

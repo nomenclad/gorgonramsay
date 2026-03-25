@@ -1,3 +1,9 @@
+/**
+ * Recipes tab: browsable, sortable table of all food crafting recipes with
+ * knowledge filters, ingredient availability, planner integration (star/unstar),
+ * and XP drop-off calculations. Supports skill filtering via the sidebar.
+ * To add new filter categories, extend the KnowledgeFilter type and the filtered memo.
+ */
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useCharacterStore } from "../../stores/characterStore";
@@ -13,11 +19,22 @@ import { useResizableColumns } from "../../hooks/useResizableColumns";
 import { useColumnFilters } from "../../hooks/useColumnFilters";
 import { ResizableTh, SortableResizableTh } from "../common/ResizableTh";
 import { Pagination } from "../common/Pagination";
+import { DEFAULT_PAGE_SIZE } from "../../lib/config";
 
+// Knowledge filter categories:
+// "all" = no filter; "known" = recipe InternalName in completions; "unknown" = not known;
+// "firstcraft" = never crafted (completion count === 0, even if recipe is known);
+// "canlearn" = not known but skill level is high enough; "toolow" = skill too low;
+// "starred" = currently in the planner queue.
 type KnowledgeFilter = "all" | "known" | "unknown" | "firstcraft" | "canlearn" | "toolow" | "starred";
 type SortKey = "name" | "type" | "skill" | "level" | "xp" | "effXp" | "dropoff";
 type SortDir = "asc" | "desc";
 type FoodCategory = "all" | "meal" | "snack";
+
+// FAE_ONLY_SKILLS: skills that only Fae-race characters can access. Recipes belonging
+// to these skills are hidden from the recipe list for non-Fae characters to avoid
+// showing unlearnable recipes. Determined by checking character.Race.
+const FAE_ONLY_SKILLS = new Set(["Race_Fae", "Phrenology_Fae"]);
 
 export function RecipeBrowser() {
   const recipes = useGameDataStore((s) => s.recipes);
@@ -67,10 +84,6 @@ export function RecipeBrowser() {
     setCtxMenu({ x: e.clientX, y: e.clientY, name });
   }, []);
   const [ingCtxMenu, setIngCtxMenu] = useState<{ x: number; y: number; name: string } | null>(null);
-  const PAGE_SIZE = 100;
-
-  // Skills restricted to Fae characters only — hidden when character is non-Fae
-  const FAE_ONLY_SKILLS = new Set(["Race_Fae", "Phrenology_Fae"]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -275,7 +288,7 @@ export function RecipeBrowser() {
     );
   }
 
-  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const paginated = filtered.slice(page * DEFAULT_PAGE_SIZE, (page + 1) * DEFAULT_PAGE_SIZE);
 
   const knowledgeButtons: { key: KnowledgeFilter; label: string; count: number | null }[] = [
     { key: "all", label: "All", count: visibleRecipes.length },
@@ -419,7 +432,7 @@ export function RecipeBrowser() {
         </div>
       )}
 
-      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+      <Pagination page={page} totalItems={filtered.length} pageSize={DEFAULT_PAGE_SIZE} onPageChange={setPage} />
 
       {/* Table */}
       <div className="overflow-x-auto">
@@ -595,7 +608,7 @@ export function RecipeBrowser() {
         </div>
       )}
 
-      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+      <Pagination page={page} totalItems={filtered.length} pageSize={DEFAULT_PAGE_SIZE} onPageChange={setPage} />
 
       {ctxMenu && (
         <ContextMenu

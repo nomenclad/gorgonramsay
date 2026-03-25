@@ -1,3 +1,4 @@
+/** Barrel export for all CDN and user-data parsers. */
 export { parseRecipes, buildRecipeIndexes } from "./recipeParser";
 export type { RecipeIndexes } from "./recipeParser";
 

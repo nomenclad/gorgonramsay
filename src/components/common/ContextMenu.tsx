@@ -1,3 +1,8 @@
+/**
+ * Right-click context menu component with wiki link and copy actions.
+ * Also exports openInBrowser (Tauri/web-aware URL opener) and re-exports wikiUrl.
+ * Close triggers: click outside, Escape key. Positioned at mouse coordinates.
+ */
 import { useEffect, useRef } from "react";
 import { isTauri } from "../../lib/platform";
 
@@ -60,12 +65,8 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   );
 }
 
-/** Build the wiki URL for an item or recipe by display name. */
-export function wikiUrl(name: string): string {
-  // PG wiki: https://wiki.projectgorgon.com/wiki/Item_Name
-  const slug = name.trim().replace(/ /g, "_");
-  return `https://wiki.projectgorgon.com/wiki/${encodeURIComponent(slug)}`;
-}
+// Re-export wikiUrl from config so existing import sites don't need to change.
+export { wikiUrl } from "../../lib/config";
 
 /** Open a URL in the system default browser (Tauri) or a new tab (web). */
 export async function openInBrowser(url: string): Promise<void> {

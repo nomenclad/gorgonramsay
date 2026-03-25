@@ -1,6 +1,8 @@
 /**
- * Extracted algorithms from the old CookingPlanner modal.
- * Used by the new tabbed Planner page and its sub-tabs.
+ * Planner utility functions: ingredient resolution, raw material aggregation,
+ * vault-based gathering routes, and garden-item identification. Extracted from
+ * the old CookingPlanner modal and shared across all Planner sub-tabs.
+ * To add a new material source type, extend buildRawMaterials and buildGatheringRoute.
  */
 
 import { getVaultZone } from "../../lib/vaultResolver";

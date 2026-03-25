@@ -1,3 +1,18 @@
+/**
+ * Ingredient availability checker and cost estimator.
+ *
+ * Determines whether a player has the required ingredients to craft a recipe,
+ * how many times they can craft it, and what it would cost to buy missing items.
+ *
+ * Key concept: ChanceToConsume — some ingredients in Project Gorgon are only
+ * consumed probabilistically (e.g., a 50% chance the tool breaks). This module
+ * uses expected values for planning, which is accurate over many crafts but may
+ * over- or under-estimate for a single craft.
+ *
+ * How to change:
+ *  - The vendor markup multiplier (item.Value * 2) in `estimateIngredientCost` is
+ *    a rough approximation. Update the factor if better pricing data is available.
+ */
 import type { Recipe, Item } from "../types";
 import { expectedConsumption } from "./xpCalculator";
 
@@ -43,13 +58,14 @@ export function countCraftable(
 ): number {
   if (recipe.Ingredients.length === 0) return Infinity;
 
+  // The bottleneck ingredient determines max crafts — find the minimum across all.
   let min = Infinity;
   for (const ing of recipe.Ingredients) {
     const have = getItemQuantity(ing.ItemCode);
     const chance = ing.ChanceToConsume ?? 1.0;
     // Expected consumption per craft = stackSize * chanceToConsume
     const expectedPerCraft = ing.StackSize * chance;
-    if (expectedPerCraft <= 0) continue;
+    if (expectedPerCraft <= 0) continue; // zero-consume ingredients (tools) don't limit crafts
     const crafts = Math.floor(have / expectedPerCraft);
     min = Math.min(min, crafts);
   }
