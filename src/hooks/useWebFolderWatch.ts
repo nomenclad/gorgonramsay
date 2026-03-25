@@ -19,30 +19,6 @@ import {
 } from "../lib/db";
 
 /* ------------------------------------------------------------------ */
-/*  Ambient types — File System Access API is not in TS stdlib yet     */
-/* ------------------------------------------------------------------ */
-declare global {
-  interface Window {
-    showDirectoryPicker?: (options?: {
-      id?: string;
-      mode?: "read" | "readwrite";
-      startIn?: string;
-    }) => Promise<FileSystemDirectoryHandle>;
-  }
-  interface FileSystemDirectoryHandle {
-    values(): AsyncIterableIterator<
-      FileSystemFileHandle | FileSystemDirectoryHandle
-    >;
-    queryPermission(desc: {
-      mode: "read" | "readwrite";
-    }): Promise<PermissionState>;
-    requestPermission(desc: {
-      mode: "read" | "readwrite";
-    }): Promise<PermissionState>;
-  }
-}
-
-/* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
