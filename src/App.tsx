@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import "./index.css";
+import { hydrateFromCache } from "./lib/hydrate";
 import { Header } from "./components/layout/Header";
 import { TabBar } from "./components/layout/TabBar";
 import { Footer } from "./components/layout/Footer";
@@ -46,13 +47,24 @@ function loadTabOrder(): Tab[] {
 function App() {
   const activeTab = useNavStore((s) => s.activeTab);
   const setActiveTab = useNavStore((s) => s.setActiveTab);
+  const [hydrated, setHydrated] = useState(false);
 
+  // Restore theme + all cached data from IndexedDB on mount
   useEffect(() => {
     const saved = localStorage.getItem("theme");
     if (saved && saved !== "default") {
       document.documentElement.setAttribute("data-theme", saved);
     }
+    hydrateFromCache().finally(() => setHydrated(true));
   }, []);
+
+  if (!hydrated) {
+    return (
+      <div className="flex items-center justify-center h-screen text-text-muted text-sm">
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">

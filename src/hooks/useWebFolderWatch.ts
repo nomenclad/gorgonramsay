@@ -15,6 +15,7 @@ import {
   storeDirectoryHandle,
   getStoredDirectoryHandle,
   clearDirectoryHandle,
+  storeUserFile,
 } from "../lib/db";
 
 /* ------------------------------------------------------------------ */
@@ -242,6 +243,7 @@ export function useWebFolderWatch(
               const json = await file.text();
               const sheet = parseCharacterSheet(json);
               setCharacter(sheet);
+              storeUserFile("character", json).catch(() => {});
               setWatchStatus(
                 `Character updated at ${new Date().toLocaleTimeString()}`,
               );
@@ -256,6 +258,7 @@ export function useWebFolderWatch(
               const json = await file.text();
               const inv = parseInventory(json);
               setInventory(inv.Items, inv.Timestamp, inv.Character);
+              storeUserFile("inventory", json).catch(() => {});
               setWatchStatus(
                 `Inventory updated at ${new Date().toLocaleTimeString()}`,
               );
