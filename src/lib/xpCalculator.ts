@@ -1,3 +1,20 @@
+/**
+ * XP calculation utilities for Project Gorgon's crafting system.
+ *
+ * Key game mechanic — XP dropoff: each recipe has a base XP reward, but once
+ * the player's skill level exceeds the recipe's `RewardSkillXpDropOffLevel`,
+ * the XP starts decreasing. For every `DropOffRate` levels above the threshold,
+ * the reward is reduced by `DropOffPct` (e.g., 10% per 2 levels). Eventually
+ * the recipe yields 0 XP and is no longer worth crafting for skill gains.
+ *
+ * Formula: effectiveXp = floor(baseXp * max(0, 1 - dropoffPct * floor((level - dropoffLevel) / dropoffRate)))
+ *
+ * This module also handles:
+ *  - First-time crafting bonuses (one-time XP boost, not subject to dropoff)
+ *  - Total XP needed between two levels (summing the XP table)
+ *  - Expected ingredient consumption with probabilistic ChanceToConsume
+ *  - Gold-per-XP cost ratio
+ */
 import type { Recipe, XpTable } from "../types";
 
 /**
@@ -18,6 +35,8 @@ export function computeEffectiveXp(
   if (!dropoffLevel || !dropoffPct || !dropoffRate) return base;
   if (currentLevel <= dropoffLevel) return base;
 
+  // Each "dropoffRate" levels above the threshold applies another "dropoffPct" penalty.
+  // e.g., dropoffLevel=30, dropoffRate=2, dropoffPct=0.1 at level 36 → 3 reductions → 70% XP
   const levelsAbove = currentLevel - dropoffLevel;
   const reductions = Math.floor(levelsAbove / dropoffRate);
   const multiplier = Math.max(0, 1 - dropoffPct * reductions);

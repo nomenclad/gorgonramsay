@@ -1,3 +1,23 @@
+/**
+ * @module plannerStore
+ *
+ * Manages the cooking planner queue: starred recipes, their desired
+ * quantities, and zone selections for gardening/cooking NPCs.
+ *
+ * **Data origin:** User interactions — starring recipes from the Recipe
+ * Browser or Gourmand Tracker, adjusting quantities, selecting zones.
+ *
+ * **Persistence:** Uses manual localStorage persistence (via the
+ * `persist()` helper below) rather than Zustand middleware because only
+ * a subset of state (`entries`, `gardeningZone`, `cookingZone`) needs
+ * to survive page reloads. Every mutating action calls `persist()`
+ * after updating state.
+ *
+ * **How to extend:** To persist additional fields, add them to both the
+ * `persist()` function's `JSON.stringify` call and the `loadPersisted()`
+ * return type. To add new actions, follow the existing pattern: update
+ * state via `set()`, then call `persist()` on the result.
+ */
 import { create } from "zustand";
 
 export interface PlannerEntry {
@@ -35,8 +55,8 @@ function loadPersisted(): Partial<Pick<PlannerState, "entries" | "gardeningZone"
         cookingZone: parsed.cookingZone ?? "",
       };
     }
-  } catch {
-    // ignore
+  } catch (e) {
+    console.warn("Failed to load planner state from localStorage:", e);
   }
   return {};
 }
@@ -51,8 +71,8 @@ function persist(state: PlannerState) {
         cookingZone: state.cookingZone,
       })
     );
-  } catch {
-    // ignore
+  } catch (e) {
+    console.warn("Failed to persist planner state to localStorage:", e);
   }
 }
 

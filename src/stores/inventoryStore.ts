@@ -1,3 +1,21 @@
+/**
+ * @module inventoryStore
+ *
+ * Stores the user-imported inventory data and provides aggregated views
+ * of item quantities across all storage vaults and the player's backpack.
+ *
+ * **Data origin:** The player runs `/exportinventory` in Project Gorgon,
+ * producing a JSON file. The file is imported (drag-and-drop or folder
+ * watch), parsed by `inventoryParser.ts`, and pushed here via
+ * `setInventory`. On set, items are automatically aggregated by typeId
+ * so callers can look up total quantities without re-scanning.
+ *
+ * **Persistence:** Raw JSON is saved in the IndexedDB `userFiles` table
+ * (key "inventory"). On startup, `hydrate.ts` restores and re-parses it.
+ *
+ * **How to extend:** Add new derived getters (e.g. `getItemsByVault`) to
+ * the store interface. The aggregation logic lives in `inventoryParser.ts`.
+ */
 import { create } from "zustand";
 import type { InventoryItem, AggregatedItem } from "../types";
 import { aggregateInventory } from "../lib/parsers/inventoryParser";

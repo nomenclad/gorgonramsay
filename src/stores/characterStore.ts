@@ -1,3 +1,22 @@
+/**
+ * @module characterStore
+ *
+ * Stores the user-imported character sheet: skill levels, recipe completion
+ * counts, favor standings, and other per-character data.
+ *
+ * **Data origin:** The player runs `/exportcharacter` in Project Gorgon,
+ * which writes a JSON file. That file is imported via drag-and-drop or
+ * the folder-watch feature, parsed by `characterParser.ts`, and pushed
+ * here via `setCharacter`.
+ *
+ * **Persistence:** The raw JSON is saved in the IndexedDB `userFiles`
+ * table (key "character") so it survives page reloads. On startup,
+ * `hydrate.ts` restores it from IndexedDB and calls `setCharacter`.
+ *
+ * **How to extend:** Add derived getters (like `isFirstTimeRecipe`) to
+ * the store interface. If the character JSON gains new fields, update
+ * the `CharacterSheet` type and `characterParser.ts` first.
+ */
 import { create } from "zustand";
 import type { CharacterSheet, SkillState } from "../types";
 

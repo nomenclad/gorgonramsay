@@ -1,3 +1,9 @@
+/**
+ * Displays the computed optimal leveling plan for a skill. Renders three sub-tabs:
+ * Leveling Steps (ordered recipe crafts), Recipes to Learn (unknown recipes needed),
+ * and Shopping List (missing ingredients grouped by acquisition type).
+ * Consumes an OptimizerResult produced by lib/optimizer.ts.
+ */
 import { useState, useMemo } from "react";
 import type { OptimizerResult, LevelingStep, MissingIngredient } from "../../types/optimizer";
 import type { Item } from "../../types";

@@ -1,4 +1,23 @@
 /**
+ * Food skill definitions for Project Gorgon.
+ *
+ * This module defines which game skills are food-related, which are craftable
+ * (vs. gathering), and how skills are grouped in the UI sidebar.
+ *
+ * The app uses these sets to:
+ *  - Filter recipes on the Recipe Tracker and Gold Efficiency pages (FOOD_SKILLS)
+ *  - Decide which intermediate crafting steps to auto-resolve (CRAFT_SKILLS)
+ *  - Merge Fishing + Angling under a single sidebar entry (MERGED_FISHING)
+ *
+ * How to change:
+ *  - When a new food-related skill is added to Project Gorgon, add its InternalName
+ *    (CamelCase, as it appears in the CDN data) to FOOD_SKILLS.
+ *  - If the new skill is a crafting skill (not gathering), also add it to CRAFT_SKILLS.
+ *  - Gathering skills (Butchering, Fishing, Angling) are intentionally excluded from
+ *    CRAFT_SKILLS because their outputs are raw materials, not intermediate crafts.
+ */
+
+/**
  * Skills considered food-related in Project Gorgon.
  * Used to filter the Recipe Tracker and Gold Efficiency pages.
  */

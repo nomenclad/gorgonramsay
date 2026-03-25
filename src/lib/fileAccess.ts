@@ -1,3 +1,23 @@
+/**
+ * File System Access API integration for reading Project Gorgon report files.
+ *
+ * In the browser, this uses the File System Access API (window.showDirectoryPicker)
+ * to let the user grant read access to their PG reports folder. The directory handle
+ * is persisted in IndexedDB so it survives page reloads — but the browser will
+ * re-prompt for permission on a new session (security requirement).
+ *
+ * In Tauri, file I/O is delegated to Rust commands via `invoke()`, bypassing the
+ * browser API entirely. The `source` parameter pattern (string = Tauri path,
+ * FileSystemDirectoryHandle = web) is used throughout to branch between the two.
+ *
+ * Browser compatibility: File System Access API is supported in Chromium-based browsers
+ * (Chrome, Edge, Opera). Firefox and Safari do not support it — those users must use
+ * the manual file upload flow instead.
+ *
+ * How to change:
+ *  - To support additional file types beyond character/inventory, update `classifyFile()`.
+ *  - The DIR_HANDLE_KEY constant is the IndexedDB key for the persisted handle.
+ */
 import {
   getStoredDirectoryHandle,
   storeDirectoryHandle,

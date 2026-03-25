@@ -1,7 +1,8 @@
 /**
- * Combat skill leveling guidance.
- * Shown when a skill has no crafting recipes (combat/gathering skills).
- * Provides level-based recommendations for efficient grinding.
+ * Guide for combat skill leveling, shown when a skill has no crafting recipes.
+ * Displays level-band recommendations, area suggestions, XP mechanics, and
+ * skill-specific tips. Data is static (COMBAT_GUIDANCE / GENERIC_LEVEL_BANDS).
+ * To add guidance for a new combat skill, add an entry to COMBAT_GUIDANCE.
  */
 
 interface Props {

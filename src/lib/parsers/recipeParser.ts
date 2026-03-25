@@ -1,3 +1,13 @@
+/**
+ * Parses recipes.json from the CDN.
+ *
+ * Builds lookup indexes by skill, InternalName, ingredients, and result items
+ * for efficient recipe discovery and cross-referencing.
+ *
+ * To handle game data format changes:
+ *   - Add new optional fields to RawRecipeData below and Recipe in types/recipe.ts.
+ *   - The parser spreads raw data onto Recipe, so new fields flow through automatically.
+ */
 import type { Recipe } from "../../types/recipe";
 
 interface RawRecipeData {

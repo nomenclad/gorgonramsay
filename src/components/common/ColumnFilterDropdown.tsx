@@ -1,3 +1,9 @@
+/**
+ * Dropdown UI for filtering table columns by value. Renders a portal-based
+ * checkbox list with search, select-all, and clear-all controls.
+ * Used by ResizableTh variants to add per-column value filtering.
+ * To add a new filterable column, pass filterOptions/filterSelected/onFilterChange props.
+ */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 

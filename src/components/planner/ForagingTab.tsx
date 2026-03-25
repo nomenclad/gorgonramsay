@@ -1,3 +1,8 @@
+/**
+ * Foraging/gathering sub-tab within the planner. Lists items that must be gathered,
+ * harvested, or farmed from monsters. Expandable rows show vendors, gather sources,
+ * and monster drop locations. Supports list and card view modes.
+ */
 import { useState, useCallback } from "react";
 import { getAcquisitionMethods } from "../../lib/sourceResolver";
 import { useMonsterDrops } from "../../hooks/useMonsterDrops";

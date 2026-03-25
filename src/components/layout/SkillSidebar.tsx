@@ -1,3 +1,8 @@
+/**
+ * Sidebar for filtering recipes/foods by crafting skill. Lists all food-related
+ * skills with recipe counts and character levels. Merges Fishing + Angling into
+ * a single entry. Collapsible with a drag-to-resize handle.
+ */
 import { useMemo, useState, useCallback } from "react";
 import { useNavStore } from "../../stores/navStore";
 import { useGameDataStore } from "../../stores/gameDataStore";

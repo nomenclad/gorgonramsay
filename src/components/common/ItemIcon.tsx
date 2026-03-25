@@ -1,5 +1,11 @@
+/**
+ * Renders item icons from the Project Gorgon CDN. Falls back to a styled
+ * placeholder div when the icon ID is missing, the CDN version is unknown,
+ * or the image fails to load. Uses pixelated rendering for crisp low-res icons.
+ */
 import { useState } from "react";
 import { useGameDataStore } from "../../stores/gameDataStore";
+import { iconUrl } from "../../lib/config";
 
 interface ItemIconProps {
   iconId?: number;
@@ -27,7 +33,7 @@ export function ItemIcon({ iconId, name, size = 32, className = "" }: ItemIconPr
     );
   }
 
-  const url = `https://cdn.projectgorgon.com/v${cdnVersion}/icons/icon_${iconId}.png`;
+  const url = iconUrl(cdnVersion, iconId);
 
   return (
     <img

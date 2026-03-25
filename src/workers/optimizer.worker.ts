@@ -1,3 +1,14 @@
+/**
+ * Web Worker that runs the skill optimizer off the main thread.
+ *
+ * The optimizer's greedy algorithm can be expensive for high-level skills with
+ * many recipes. Running it in a Worker prevents the UI from freezing during
+ * computation. The main thread sends a WorkerInput message, the worker runs
+ * runOptimizer(), and posts back either a result or an error.
+ *
+ * Maps (inventory, itemsById) are serialized as [key, value][] arrays because
+ * Map objects can't be passed through postMessage's structured clone.
+ */
 import type { Recipe, Item, XpTable } from "../types";
 import type { OptimizerResult } from "../types/optimizer";
 import { runOptimizer } from "../lib/optimizer";

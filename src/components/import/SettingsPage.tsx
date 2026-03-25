@@ -1,3 +1,9 @@
+/**
+ * Settings tab: handles game data import from CDN, character/inventory file loading,
+ * CDN cache refresh, theme selection, and file system watch configuration (Tauri).
+ * This is the primary entry point for bootstrapping the app with game data.
+ * To add new settings, append a section to the returned JSX layout.
+ */
 import { useState, useCallback, useEffect, useRef } from "react";
 import { isTauri, supportsFileSystemAccess } from "../../lib/platform";
 import { useGameDataStore } from "../../stores/gameDataStore";

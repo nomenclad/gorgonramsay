@@ -1,3 +1,9 @@
+/**
+ * Gourmand tab: tracks which foods grant first-time Gourmand XP. Displays a
+ * filterable/sortable table of all foods with eaten status, craft readiness, and
+ * recipe source info. Supports planner integration (star/unstar recipes).
+ * To add new filter dimensions, extend the preStatusFiltered pipeline.
+ */
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useInventoryStore } from "../../stores/inventoryStore";
@@ -12,6 +18,7 @@ import { useResizableColumns } from "../../hooks/useResizableColumns";
 import { Pagination } from "../common/Pagination";
 import { ResizableTh, SortableResizableTh, FilterableResizableTh } from "../common/ResizableTh";
 import { useColumnFilters } from "../../hooks/useColumnFilters";
+import { DEFAULT_PAGE_SIZE } from "../../lib/config";
 
 type CategoryFilter = "all" | "meal" | "snack";
 type SourceTypeFilter = "all" | "foraged" | "crafted";
@@ -56,7 +63,6 @@ export function GourmandTracker() {
   const [sortKey, setSortKey] = useState<SortKey>("gourmandLvl");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 100;
   const { widths: colW, startResize } = useResizableColumns("gourmand-v5", [40, 55, 200, 100, 70, 90, 110, 90, 70, 120, 160, 200]);
   const colFilters = useColumnFilters();
 
@@ -64,7 +70,10 @@ export function GourmandTracker() {
   const gourmandLevel = gourmandSkill?.Level ?? 0;
   const completions = character?.RecipeCompletions ?? {};
 
-  // Map: ItemCode → first recipe that produces it (for matching foods to recipes)
+  // Map: ItemCode -> first recipe that produces it.
+  // Used to link food items to their crafting recipe (for "eaten" vs "recipe known" checks).
+  // "Eaten" = the item's InternalName appears in completions (the food was consumed).
+  // "Recipe known" = the recipe's InternalName appears in completions (the recipe was crafted at least once).
   const recipeByResultItem = useMemo(() => {
     const m = new Map<number, { InternalName: string }>();
     for (const r of recipes) {
@@ -124,7 +133,11 @@ export function GourmandTracker() {
     return recipe.Ingredients.every((ing) => getItemQuantity(ing.ItemCode) >= ing.StackSize);
   };
 
-  // Helper: compute "can craft" rank for a food (0=can craft, 1=learn first/missing, 2=skill too low, 3=no recipe)
+  // Craft rank system: determines how "ready" a food is to be crafted.
+  // 0 = fully craftable (recipe known + all ingredients in inventory)
+  // 1 = partially ready (recipe known but missing items, OR recipe unknown but skill is high enough)
+  // 2 = skill too low to learn the recipe
+  // 3 = no recipe exists (raw/foraged food)
   const getCraftRank = (food: FoodItem): number => {
     if (!food.hasTracking) return 3;
     const recipe = recipeByName.get(food.recipeInternalName!);
@@ -137,7 +150,10 @@ export function GourmandTracker() {
     return 0;
   };
 
-  // All active filters EXCEPT statusFilter — used to compute accurate button badge counts
+  // Filter pipeline step 1: preStatusFiltered applies skill, category, search, source type,
+  // and toggle filters (learnable/known/ingredients). The uneaten filter is applied separately
+  // in the next step so that badge counts on the uneaten button reflect the pre-uneaten total.
+  // Pipeline: foods -> preStatusFiltered -> filtered (adds uneaten + column filters) -> paginated
   const preStatusFiltered = useMemo(() => {
     let results = foods;
 
@@ -232,6 +248,10 @@ export function GourmandTracker() {
     [preStatusFiltered, getFoodSkill]
   );
 
+  // Readiness states for the Status column:
+  // "Ready to Eat" = not yet eaten AND the item is in the player's inventory
+  // "Eaten" = the food's recipe InternalName exists in completions (already consumed for XP)
+  // "Not in Inventory" = not eaten and not currently held
   const getReadiness = useCallback((food: FoodItem): string => {
     const isEaten = food.hasTracking && food.recipeInternalName! in completions;
     const qty = getItemQuantity(food.itemCode);
@@ -404,7 +424,7 @@ export function GourmandTracker() {
         <span className="text-xs text-text-muted">{filtered.length} shown</span>
       </div>
 
-      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+      <Pagination page={page} totalItems={filtered.length} pageSize={DEFAULT_PAGE_SIZE} onPageChange={setPage} />
 
       {/* Table */}
       <div className="overflow-x-auto">
@@ -430,7 +450,7 @@ export function GourmandTracker() {
             </tr>
           </thead>
           <tbody>
-            {filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((food) => {
+            {filtered.slice(page * DEFAULT_PAGE_SIZE, (page + 1) * DEFAULT_PAGE_SIZE).map((food) => {
               const qty = getItemQuantity(food.itemCode);
               const eaten = food.hasTracking && food.recipeInternalName! in completions;
               const recipe = recipeByName.get(food.recipeInternalName!);
@@ -610,7 +630,7 @@ export function GourmandTracker() {
         )}
       </div>
 
-      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+      <Pagination page={page} totalItems={filtered.length} pageSize={DEFAULT_PAGE_SIZE} onPageChange={setPage} />
 
       {ingCtxMenu && (
         <ContextMenu

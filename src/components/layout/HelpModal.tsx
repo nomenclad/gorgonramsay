@@ -1,3 +1,8 @@
+/**
+ * Help/info modal explaining app features: getting started, tab descriptions,
+ * quick actions, and general usage tips. Rendered as a portal overlay.
+ * Closes on backdrop click or Escape key.
+ */
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 

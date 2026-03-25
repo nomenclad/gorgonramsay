@@ -1,3 +1,4 @@
+/** Barrel export for all shared type definitions. */
 export type { Ingredient, ResultItem, Recipe } from "./recipe";
 export type { Item } from "./item";
 export type { SkillState, CharacterSheet } from "./character";

@@ -1,11 +1,24 @@
+/**
+ * Crafting calculator tab: builds and renders a full material dependency tree for
+ * any craftable food item. Features a resizable recipe sidebar, a pannable/zoomable
+ * SVG+DOM canvas, and a raw materials summary footer.
+ * To adjust node sizing or spacing, modify the layout constants below (NODE_W, etc.).
+ */
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useGameDataStore, type RecipeIndexes } from "../../stores/gameDataStore";
 import { useInventoryStore } from "../../stores/inventoryStore";
 import { useNavStore } from "../../stores/navStore";
 import { FOOD_SKILLS, formatSkillName } from "../../lib/foodSkills";
+import { wikiUrl } from "../../lib/config";
 import type { Recipe } from "../../types/recipe";
 
 // ─── Layout constants ─────────────────────────────────────────────────────────
+// NODE_W/NODE_H: pixel dimensions of each tree node card.
+// COL_GAP/ROW_GAP: horizontal/vertical spacing between nodes in the tree layout.
+// MAX_DEPTH: recursion limit to prevent infinite loops from circular recipes.
+// SIDEBAR_MIN/MAX: min/max pixel widths for the recipe sidebar.
+// ZOOM_MIN/MAX: scroll-wheel zoom bounds for the canvas.
+// To make nodes larger, increase NODE_W/NODE_H and adjust COL_GAP/ROW_GAP proportionally.
 const NODE_W = 180;
 const NODE_H = 80;
 const COL_GAP = 58;
@@ -16,6 +29,9 @@ const SIDEBAR_MAX = 480;
 const ZOOM_MIN = 0.15;
 const ZOOM_MAX = 2.5;
 
+// SKILL_ABBREV: short 3-letter codes shown next to recipe names in the sidebar
+// to save horizontal space. If a skill isn't listed here, it falls back to
+// the first 3 characters of the skill name uppercased.
 const SKILL_ABBREV: Record<string, string> = {
   Cooking: "COO",
   Cheesemaking: "CHE",
@@ -60,6 +76,11 @@ interface ContextMenu {
 }
 
 // ─── Tree builder ─────────────────────────────────────────────────────────────
+// Recursively builds a CraftNode tree starting from a target item. Each node
+// represents an item needed; if that item is produced by a food-skill recipe,
+// its children are the recipe's ingredients (scaled by the number of craft runs).
+// The `visited` set prevents infinite recursion from circular recipe chains.
+// `counter` provides unique node IDs for the layout engine.
 function buildTree(
   itemCode: number,
   needed: number,
@@ -118,6 +139,10 @@ function buildTree(
 }
 
 // ─── Layout engine ────────────────────────────────────────────────────────────
+// Converts the CraftNode tree into flat arrays of positioned LayoutNodes and Edges.
+// Uses a right-to-left layout: the root (final product) is at the rightmost column,
+// raw materials at the leftmost. Leaf nodes are placed in sequential vertical slots;
+// parent nodes are centered vertically between their children.
 function layoutTree(root: CraftNode): {
   nodes: LayoutNode[];
   edges: Edge[];
@@ -319,7 +344,9 @@ export function CraftingCalculator() {
     document.addEventListener("mouseup", onUp);
   }, []);
 
-  // Scroll to zoom — centred on pointer position
+  // Scroll to zoom — zooms centered on the pointer position so the point under
+  // the cursor stays fixed. Uses refs (panRef/zoomRef) instead of state values
+  // because the wheel handler is attached once and must read the latest values.
   const onWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
     const canvas = canvasRef.current;
@@ -709,10 +736,7 @@ export function CraftingCalculator() {
             <button
               className="w-full text-left px-4 py-2 hover:bg-bg-primary transition-colors text-text-muted"
               onClick={() => {
-                const url = `https://wiki.projectgorgon.com/wiki/${encodeURIComponent(
-                  ctxMenu.node.name.replace(/ /g, "_")
-                )}`;
-                window.open(url, "_blank");
+                window.open(wikiUrl(ctxMenu.node.name), "_blank");
                 setCtxMenu(null);
               }}
             >

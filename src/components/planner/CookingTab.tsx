@@ -1,3 +1,8 @@
+/**
+ * Cooking sub-tab within the planner. Groups planned recipes by skill and displays
+ * intermediate crafting steps (non-gardening sub-recipes) with ingredient availability.
+ * Each recipe shows per-ingredient have/need status with color-coded badges.
+ */
 import { useMemo } from "react";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useInventoryStore } from "../../stores/inventoryStore";

@@ -1,3 +1,9 @@
+/**
+ * Skill optimizer tab: selects a crafting skill, computes the best recipe sequence
+ * to reach a target level, and renders the result via LevelingPlan. Features its
+ * own skill sidebar (separate from the main SkillSidebar) and diagnostic messages
+ * for edge cases like fully dropped-off XP or no available recipes.
+ */
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useCharacterStore } from "../../stores/characterStore";
 import { useGameDataStore } from "../../stores/gameDataStore";
@@ -5,6 +11,13 @@ import { useInventoryStore } from "../../stores/inventoryStore";
 import type { OptimizerResult } from "../../types/optimizer";
 import { runOptimizer } from "../../lib/optimizer";
 import { LevelingPlan } from "./LevelingPlan";
+
+// EXCLUDED_SKILLS: combat/magic skills that have crafting recipes in the CDN data but
+// aren't meaningfully optimizable through crafting alone (e.g. FireMagic has
+// transmutation recipes but XP comes primarily from combat). Excluding them
+// prevents confusing/useless optimization results.
+// To exclude additional skills, add their InternalName to this set.
+const EXCLUDED_SKILLS = new Set(["FireMagic", "IceMagic", "WeatherWitching"]);
 
 export function SkillOptimizer() {
   const character = useCharacterStore((s) => s.character);
@@ -29,9 +42,6 @@ export function SkillOptimizer() {
     });
   }, []);
 
-  // Skills excluded from the optimizer (combat/magic skills not suited to crafting optimization)
-  const EXCLUDED_SKILLS = new Set(["FireMagic", "IceMagic", "WeatherWitching"]);
-
   // Only skills that have at least one crafting recipe
   const craftingSkills = useMemo(() => {
     if (!character) return [];
@@ -51,7 +61,11 @@ export function SkillOptimizer() {
     return map;
   }, [aggregated]);
 
-  // Diagnostic info for the selected skill at current level
+  // Skill diagnostics computation: determines recipe availability at the player's current level.
+  // unlocked = recipes at or below current level; withXp = those that award base XP;
+  // withEffXp = those still giving effective XP after drop-off (XP decays as you
+  // out-level a recipe based on RewardSkillXpDropOffLevel/Pct/Rate fields).
+  // nextUnlockLevel = the soonest level that unlocks a new recipe, shown as guidance.
   const skillDiagnostics = useMemo(() => {
     if (!selectedSkill || !currentSkill) return null;
     const skillRecipes = getRecipesForSkill(selectedSkill);

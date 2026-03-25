@@ -1,3 +1,9 @@
+/**
+ * Recipe completion tracking component. Shows all food-skill recipes with their
+ * Known/Can Learn/Too Low status, times used, acquisition sources, and costs.
+ * Filterable by skill (via sidebar) and knowledge status. Supports context menu
+ * for wiki links and crafting navigation.
+ */
 import { useState, useMemo, useCallback } from "react";
 import { useCharacterStore } from "../../stores/characterStore";
 import { useGameDataStore } from "../../stores/gameDataStore";

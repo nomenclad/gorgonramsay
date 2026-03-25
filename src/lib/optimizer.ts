@@ -1,3 +1,29 @@
+/**
+ * Greedy XP optimization algorithm for leveling food skills.
+ *
+ * Produces a step-by-step leveling plan that tells the player which recipes to
+ * craft (and in what order) to reach a target skill level most efficiently.
+ *
+ * Algorithm overview:
+ *  1. Claim all available first-time crafting bonuses (free XP with no dropoff).
+ *  2. Greedily pick the highest-XP craftable recipe from inventory.
+ *  3. When inventory runs out, recommend the best recipe by XP/craft (appears
+ *     in the shopping list so the player knows what to buy).
+ *  4. Repeat until the target level is reached or no recipes remain.
+ *
+ * XP dropoff: recipes give less XP as the player out-levels them (see xpCalculator).
+ * The optimizer accounts for this by recalculating effective XP at each step, which
+ * means it may switch to a higher-level recipe mid-plan when one becomes more efficient.
+ *
+ * Shopping list: when a step can't be crafted from inventory, the optimizer tracks
+ * missing ingredients and estimates vendor buy costs (item.Value * 2 markup).
+ *
+ * How to change:
+ *  - The vendor markup factor (2x) is hardcoded in `buildStep()` — adjust if needed.
+ *  - maxIterations (10000) is a safety cap to prevent infinite loops.
+ *  - The greedy heuristic (highest XP first) doesn't guarantee globally optimal plans.
+ *    A dynamic programming approach could find better solutions but would be slower.
+ */
 import type { Recipe, Item, XpTable, MissingIngredient } from "../types";
 import type { LevelingStep, OptimizerResult } from "../types/optimizer";
 import {
@@ -195,7 +221,8 @@ export function runOptimizer(input: OptimizerInput): OptimizerResult {
 
     if (eligible.length === 0) break;
 
-    // Sort: craftable first, then by XP desc
+    // Sort: craftable recipes first (free from inventory), then by XP descending.
+    // This ensures we exhaust inventory before recommending purchases.
     eligible.sort((a, b) => {
       if (a.craftable > 0 && b.craftable === 0) return -1;
       if (b.craftable > 0 && a.craftable === 0) return 1;
@@ -217,8 +244,8 @@ export function runOptimizer(input: OptimizerInput): OptimizerResult {
     // How many crafts to get to next level or finish?
     const craftsNeeded = Math.max(1, Math.ceil(xpStillNeeded / effXp));
     const craftable = countCraftableFromMap(recipe, simInventory);
-    // When buying (not craftable), only plan one level at a time so the loop
-    // can reconsider higher-level recipes that unlock as simLevel increases.
+    // When buying (not craftable), only plan up to the next level so the loop
+    // can reconsider — a higher-level recipe may unlock and be more XP-efficient.
     const xpToNextLevel = Math.max(1, (xpTable.XpAmounts[simLevel] ?? 0) - simXp);
     const craftsToNextLevel = Math.max(1, Math.ceil(xpToNextLevel / effXp));
     const craftCount = craftable > 0
@@ -250,7 +277,7 @@ export function runOptimizer(input: OptimizerInput): OptimizerResult {
     xpGained += totalStepXp;
   }
 
-  // Consolidate consecutive identical steps
+  // Merge consecutive steps for the same recipe into one row for cleaner display
   const consolidated = consolidateSteps(steps);
 
   // Build missing ingredients summary

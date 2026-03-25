@@ -1,3 +1,12 @@
+/**
+ * Parses xptables.json from the CDN.
+ *
+ * Each XP table maps skill levels to XP amounts. Skills reference these
+ * tables by InternalName to determine XP rewards at each level.
+ *
+ * To handle game data format changes:
+ *   - Add new optional fields to RawXpTableData below and XpTable in types/xpTable.ts.
+ */
 import type { XpTable } from "../../types/xpTable";
 
 interface RawXpTableData {

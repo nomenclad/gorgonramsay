@@ -1,3 +1,21 @@
+/**
+ * @module useQuickCook
+ *
+ * Auto-picks the best uneaten food to cook next based on what the player
+ * owns in their inventory and hasn't eaten yet (for Gourmand XP).
+ *
+ * Selection logic:
+ * 1. Considers only foods with Gourmand tracking (i.e. foods that grant
+ *    first-time-eat XP).
+ * 2. Prioritizes uneaten foods over already-eaten ones.
+ * 3. Within each group, sorts by food level (highest first) for maximum
+ *    Gourmand XP gain.
+ * 4. Picks one meal and one snack separately (the two food slots).
+ * 5. Verifies the player has the required skill level and ingredients
+ *    (either in inventory or purchasable from a vendor).
+ *
+ * Returns `handleQuickCook` which queues the picks into the planner.
+ */
 import { useMemo, useCallback } from "react";
 import { useGameDataStore } from "../stores/gameDataStore";
 import { useCharacterStore } from "../stores/characterStore";

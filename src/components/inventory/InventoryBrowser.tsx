@@ -1,3 +1,9 @@
+/**
+ * Ingredients tab: searchable/filterable table of all food-related inventory items.
+ * Merges game data items with player inventory to show owned and missing ingredients.
+ * Supports stock filters (have/missing), acquisition type, vault filtering, and
+ * column-level sorting/filtering. Click a row to open IngredientDetailModal.
+ */
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useInventoryStore } from "../../stores/inventoryStore";
 import { useGameDataStore } from "../../stores/gameDataStore";
@@ -8,6 +14,7 @@ import { getAcquisitionMethods } from "../../lib/sourceResolver";
 import { useMonsterDrops } from "../../hooks/useMonsterDrops";
 import { IngredientDetailModal } from "./IngredientDetailModal";
 import type { AggregatedItem } from "../../types";
+import { DEFAULT_PAGE_SIZE } from "../../lib/config";
 import { useResizableColumns } from "../../hooks/useResizableColumns";
 import { useColumnFilters } from "../../hooks/useColumnFilters";
 import { ResizableTh, SortableResizableTh } from "../common/ResizableTh";
@@ -51,7 +58,6 @@ export function InventoryBrowser() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 100;
   const colFilters = useColumnFilters();
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; name: string } | null>(null);
   const handleContextMenu = useCallback((e: React.MouseEvent, name: string) => {
@@ -316,7 +322,7 @@ export function InventoryBrowser() {
         {search && ` matching "${search}"`}
       </div>
 
-      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+      <Pagination page={page} totalItems={filtered.length} pageSize={DEFAULT_PAGE_SIZE} onPageChange={setPage} />
 
       <div className="overflow-x-auto">
         <table className="text-sm w-full" style={{ tableLayout: "fixed" }}>
@@ -334,7 +340,7 @@ export function InventoryBrowser() {
             </tr>
           </thead>
           <tbody>
-            {filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((item) => {
+            {filtered.slice(page * DEFAULT_PAGE_SIZE, (page + 1) * DEFAULT_PAGE_SIZE).map((item) => {
               const acquisition = getAcquisition(item.typeId);
               const usedInCount = recipeIndexes?.byIngredient.get(item.typeId)?.filter((r) => FOOD_SKILLS.has(r.Skill)).length ?? 0;
 
@@ -524,7 +530,7 @@ export function InventoryBrowser() {
         />
       )}
 
-      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+      <Pagination page={page} totalItems={filtered.length} pageSize={DEFAULT_PAGE_SIZE} onPageChange={setPage} />
     </div>
   );
 }

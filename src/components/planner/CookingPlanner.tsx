@@ -1,3 +1,8 @@
+/**
+ * Main cooking planner tab container. Resolves queued recipes from the planner store
+ * into a full ingredient breakdown, then delegates to sub-tabs: Storage, Gardening,
+ * Foraging, Purchasing, Cooking, and Route. Supports list and card view modes.
+ */
 import { useState, useMemo } from "react";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useInventoryStore } from "../../stores/inventoryStore";

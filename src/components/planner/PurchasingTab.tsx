@@ -1,3 +1,8 @@
+/**
+ * NPC purchasing sub-tab within the planner. Groups vendor-buyable items by zone
+ * using pickBestVendor to prefer vendors near the user's cooking zone.
+ * Supports list and card view modes.
+ */
 import { pickBestVendor } from "./plannerUtils";
 import type { StillNeededItem } from "./plannerUtils";
 import type { ViewMode } from "./CookingPlanner";

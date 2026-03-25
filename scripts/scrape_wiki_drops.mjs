@@ -22,6 +22,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
 
 // ── Config ────────────────────────────────────────────────────────────────────
+// The wiki base URL is also defined in src/lib/config.ts — keep them in sync.
 const CDN_DIR       = "/Users/lulu/Documents/gorgon jsons";
 const OUTPUT_FILE   = path.join(projectRoot, "public", "monster_drops.json");
 const PROGRESS_FILE = path.join(projectRoot, "scripts", "scrape_progress.json");

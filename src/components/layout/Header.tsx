@@ -1,3 +1,8 @@
+/**
+ * App header displaying the application name, character info (name + server),
+ * inventory import date, game data load status, and a Help button.
+ * Renders the HelpModal when the user clicks Help.
+ */
 import { useState } from "react";
 import { useCharacterStore } from "../../stores/characterStore";
 import { useInventoryStore } from "../../stores/inventoryStore";

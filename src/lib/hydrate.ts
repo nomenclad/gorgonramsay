@@ -17,7 +17,12 @@ import { useGameDataStore } from "../stores/gameDataStore";
 import { useCharacterStore } from "../stores/characterStore";
 import { useInventoryStore } from "../stores/inventoryStore";
 
-/** Apply a map of CDN file contents to the game data store (no status log). */
+/**
+ * Apply a map of CDN file contents to the game data store (no status log).
+ * Order matters: recipes and items must be parsed first because other data
+ * (sources, item uses) references them by ID. Each file is guarded by an
+ * `if` check so partial cache hits still work — optional files may be absent.
+ */
 function applyCdnFiles(files: Record<string, string>) {
   const store = useGameDataStore.getState();
 
@@ -59,7 +64,8 @@ function applyCdnFiles(files: Record<string, string>) {
  * Safe to call on every mount — silently skips anything that's missing.
  */
 export async function hydrateFromCache(): Promise<void> {
-  // 1. Restore CDN game data
+  // 1. Restore CDN game data first — recipes/items must be available before
+  //    character or inventory parsing, since those stores may reference item codes.
   const version = await getCachedVersion();
   if (version) {
     useGameDataStore.getState().setCdnVersion(version);
@@ -70,27 +76,28 @@ export async function hydrateFromCache(): Promise<void> {
         if (content) files[filename] = content;
       }),
     );
-    // Only apply if we have at least the core files
+    // Core files (recipes + items) are required for the app to function.
+    // Without them the UI has nothing to display, so skip hydration entirely.
     if (files["recipes.json"] && files["items.json"]) {
       applyCdnFiles(files);
     }
   }
 
-  // 2. Restore character
+  // 2. Restore character — must come after CDN data so skill names can be resolved
   const charJson = await getUserFile("character");
   if (charJson) {
     try {
       const sheet = parseCharacterSheet(charJson);
       useCharacterStore.getState().setCharacter(sheet);
-    } catch { /* corrupted — skip */ }
+    } catch (e) { console.warn("Skipping corrupted character data:", e); }
   }
 
-  // 3. Restore inventory
+  // 3. Restore inventory — last because it's the least critical for initial render
   const invJson = await getUserFile("inventory");
   if (invJson) {
     try {
       const inv = parseInventory(invJson);
       useInventoryStore.getState().setInventory(inv.Items, inv.Timestamp, inv.Character);
-    } catch { /* corrupted — skip */ }
+    } catch (e) { console.warn("Skipping corrupted inventory data:", e); }
   }
 }

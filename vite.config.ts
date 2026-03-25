@@ -1,3 +1,24 @@
+/**
+ * Vite build configuration — dual-target setup for web and desktop.
+ *
+ * Two build targets controlled by the BUILD_TARGET env var:
+ *   - "web"  → GitHub Pages deployment (dist-web/, base "/gorgonramsay/")
+ *   - unset  → Tauri desktop app (dist/, base "/")
+ *
+ * Key decisions:
+ *   - The dev proxy routes /api/cdn-version through Vite because the game's
+ *     version endpoint is HTTP-only (mixed-content blocked in browsers).
+ *     The canonical URL is in src/lib/config.ts — update both if it changes.
+ *   - Tauri packages (@tauri-apps/*) are marked as external in web builds.
+ *     They're dynamically imported behind `if (isTauri)` guards and never
+ *     execute in the browser, but Rollup still needs them to resolve.
+ *
+ * How to change:
+ *   - To change the GitHub Pages base path: edit the `base` field below.
+ *   - To add Tauri plugins to the web exclusion list: add to rollupOptions.external.
+ *   - To change the CDN proxy target: update the proxy target URL below AND
+ *     the VERSION_URL constant in src/lib/config.ts.
+ */
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";

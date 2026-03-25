@@ -1,3 +1,17 @@
+/**
+ * @module useColumnFilters
+ *
+ * Generic hook for managing column dropdown filters in data tables.
+ * Used by RecipeBrowser, GourmandTracker, and InventoryBrowser to let
+ * users filter rows by selecting allowed values for specific columns.
+ *
+ * An empty Set for a column means "no filter" (show all rows).
+ * A non-empty Set means "show only rows whose value is in the Set".
+ *
+ * **How to add a new filterable column:** At the hook's usage site,
+ * call `setFilter(columnKey, selectedValues)` with the new column's key.
+ * The hook is column-agnostic — it just stores Sets keyed by string.
+ */
 import { useState, useCallback } from "react";
 
 /**

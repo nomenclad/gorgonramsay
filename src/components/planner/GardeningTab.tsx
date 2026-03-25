@@ -1,3 +1,8 @@
+/**
+ * Gardening sub-tab within the planner. Shows crops to plant with per-batch ingredient
+ * breakdowns, a total materials summary, and a "Grow from Seeds" section for items
+ * identifiable as garden crops but not tied to a specific Gardening recipe step.
+ */
 import { useInventoryStore } from "../../stores/inventoryStore";
 import type { CraftingStep, StillNeededItem } from "./plannerUtils";
 import type { ViewMode } from "./CookingPlanner";

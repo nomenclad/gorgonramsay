@@ -1,3 +1,18 @@
+/**
+ * @module useResizableColumns
+ *
+ * Enables drag-to-resize table columns. Persists column widths to
+ * localStorage keyed by table ID (e.g. `col-widths-inventory`) so
+ * column sizes survive page reloads.
+ *
+ * Uses document-level mousemove/mouseup listeners during a drag so the
+ * resize continues even if the cursor leaves the table header. Enforces
+ * a 40px minimum column width.
+ *
+ * **Usage:** Call `startResize(colIndex, e.clientX)` from a column
+ * header's resize-handle `onMouseDown`. The hook returns the current
+ * `widths` array to apply as inline styles on each `<th>`/`<td>`.
+ */
 import { useState, useCallback, useEffect } from "react";
 
 /**

@@ -1,3 +1,13 @@
+/**
+ * Parses items.json from the CDN.
+ *
+ * Builds lookup indexes by ID, ItemCode, and Keywords for efficient
+ * cross-referencing with recipes and inventory.
+ *
+ * To handle game data format changes:
+ *   - Add new optional fields to RawItemData below and Item in types/item.ts.
+ *   - The parser spreads raw data onto Item, so new fields flow through automatically.
+ */
 import type { Item } from "../../types/item";
 
 interface RawItemData {

@@ -1,3 +1,8 @@
+/**
+ * Storage vault sub-tab within the planner. Shows which vaults to visit and
+ * which items to collect, organized by zone. The cooking zone is listed last
+ * to minimize backtracking. Supports list and card view modes.
+ */
 import type { GatheringRoute } from "./plannerUtils";
 import type { ViewMode } from "./CookingPlanner";
 

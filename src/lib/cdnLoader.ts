@@ -1,3 +1,27 @@
+/**
+ * CDN data loader — fetches game data files from the Project Gorgon CDN.
+ *
+ * The CDN hosts versioned JSON files (recipes, items, XP tables, etc.) that this
+ * app needs to function. This module handles version checking, caching via IndexedDB,
+ * and downloading files with progress reporting.
+ *
+ * Data flow:
+ *  1. Check the current CDN version number (fileversion.txt).
+ *  2. Evict any locally cached files from older versions.
+ *  3. For each file: serve from cache if available, otherwise download.
+ *
+ * Three runtime environments are supported:
+ *  - Tauri desktop: bypasses CORS by using Rust-side HTTP via `invoke()`.
+ *  - GitHub Pages (prod web): uses pre-fetched static files bundled at build time.
+ *  - Dev server (web): uses Vite's dev proxy or a configurable CORS proxy.
+ *
+ * How to change:
+ *  - CDN URLs: edit CDN_BASE and VERSION_URL in src/lib/config.ts.
+ *  - To add a new game data file: add it to CORE_CDN_FILES (required) or
+ *    OPTIONAL_CDN_FILES (gracefully skipped on failure), then handle parsing
+ *    in the hydrate module and the game data store.
+ *  - CORS proxy for prod: set the VITE_CDN_PROXY env var to a proxy URL prefix.
+ */
 import { isTauri } from "./platform";
 import {
   getCachedFile,
@@ -37,8 +61,8 @@ export interface CdnLoadResult {
   files: Record<string, string>; // filename -> raw JSON content
 }
 
-// CDN constants (mirrored from Rust)
-const CDN_BASE = "https://cdn.projectgorgon.com";
+// CDN base URL — canonical source is src/lib/config.ts
+import { CDN_BASE, VERSION_URL } from "./config";
 
 /**
  * Check whether pre-fetched CDN data is available as static files
@@ -76,7 +100,7 @@ export async function fetchCdnVersion(): Promise<number> {
   // In prod: set VITE_CDN_PROXY to a CORS-enabled proxy URL, e.g. https://corsproxy.io/?
   const proxyBase = import.meta.env.VITE_CDN_PROXY as string | undefined;
   const versionUrl = proxyBase
-    ? `${proxyBase}${encodeURIComponent("http://client.projectgorgon.com/fileversion.txt")}`
+    ? `${proxyBase}${encodeURIComponent(VERSION_URL)}`
     : "/api/cdn-version";
 
   const res = await fetch(versionUrl);
