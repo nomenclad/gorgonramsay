@@ -18,6 +18,7 @@ import {
   type DownloadProgress,
 } from "../../lib/cdnLoader";
 import { getCachedVersion } from "../../lib/db";
+import { useWebFolderWatch } from "../../hooks/useWebFolderWatch";
 
 interface ReportFile {
   filename: string;
@@ -84,6 +85,8 @@ export function SettingsPage() {
     (msg: string) => setStatus((prev) => [...prev, msg]),
     []
   );
+
+  const webFolder = useWebFolderWatch(addStatus);
 
   // Keep pgPathRef in sync
   useEffect(() => { pgPathRef.current = pgPath; }, [pgPath]);
@@ -520,66 +523,147 @@ export function SettingsPage() {
         )}
       </section>
 
-      {/* Character & Inventory upload — web mode shows file inputs, Tauri uses native picker */}
+      {/* Web: Folder watch (File System Access API) + manual upload fallback */}
       {!isTauri && (
-        <section className="bg-bg-secondary rounded-lg p-4 space-y-3">
-          <h3 className="font-medium text-sm">Upload Character & Inventory</h3>
-          <p className="text-xs text-text-muted">
-            Export your character and inventory from Project Gorgon (F1 → Reports → Export),
-            then upload the JSON files here.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <label className="flex flex-col gap-1 cursor-pointer">
-              <span className="text-xs text-text-muted">Character file (Character_*.json)</span>
-              <input
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  try {
-                    const text = await file.text();
-                    const sheet = parseCharacterSheet(text);
-                    setCharacter(sheet);
-                    addStatus(`✓ Character loaded: ${sheet.Character} @ ${sheet.ServerName}`);
-                  } catch (err) {
-                    addStatus(`✗ Failed to parse character: ${err}`);
-                  }
-                  e.target.value = "";
-                }}
-              />
-              <span className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-sm text-center transition-colors">
-                {character ? "↻ Reload Character" : "Choose Character File"}
-              </span>
-            </label>
+        <>
+          {webFolder.supported && (
+            <section className="bg-bg-secondary rounded-lg p-4 space-y-3">
+              <h3 className="font-medium text-sm">Reports Folder</h3>
+              <p className="text-xs text-text-muted">
+                Select your PG Reports folder to enable automatic character & inventory tracking.
+                {" "}Works in Chrome and Edge.
+              </p>
 
-            <label className="flex flex-col gap-1 cursor-pointer">
-              <span className="text-xs text-text-muted">Inventory file (*_items_*.json)</span>
-              <input
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  try {
-                    const text = await file.text();
-                    const inv = parseInventory(text);
-                    setInventory(inv.Items, inv.Timestamp, inv.Character);
-                    addStatus(`✓ Inventory loaded: ${inv.Items.length} items`);
-                  } catch (err) {
-                    addStatus(`✗ Failed to parse inventory: ${err}`);
-                  }
-                  e.target.value = "";
-                }}
-              />
-              <span className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-sm text-center transition-colors">
-                {inventoryTimestamp ? "↻ Reload Inventory" : "Choose Inventory File"}
-              </span>
-            </label>
-          </div>
-        </section>
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-text-muted flex-1">
+                  {webFolder.folderName
+                    ? `Folder: ${webFolder.folderName}`
+                    : "No folder selected"}
+                </p>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={webFolder.pickFolder}
+                    className="border border-border hover:border-accent text-text-secondary hover:text-text-primary px-3 py-1.5 rounded text-xs transition-colors"
+                  >
+                    {webFolder.folderName ? "Change Folder…" : "Select Reports Folder…"}
+                  </button>
+                  {webFolder.folderName && (
+                    <button
+                      onClick={webFolder.disconnect}
+                      className="border border-border hover:border-danger text-text-muted hover:text-danger px-3 py-1.5 rounded text-xs transition-colors"
+                    >
+                      Disconnect
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Permission re-grant banner */}
+              {webFolder.needsPermission && (
+                <div className="flex items-center gap-2 bg-gold/10 border border-gold/30 rounded-lg px-3 py-2 text-sm">
+                  <span className="text-gold font-medium">⚠</span>
+                  <span className="text-text-primary text-xs">
+                    Folder access expired — click to re-grant read permission.
+                  </span>
+                  <button
+                    onClick={webFolder.requestPermission}
+                    className="ml-auto bg-accent hover:bg-accent-hover text-white px-3 py-1 rounded text-xs transition-colors"
+                  >
+                    Grant Access
+                  </button>
+                </div>
+              )}
+
+              {/* Auto-watch toggle */}
+              {webFolder.folderName && !webFolder.needsPermission && (
+                <div className="flex items-center justify-between pt-2 mt-1 border-t border-border/40">
+                  <div>
+                    <div className="text-sm text-text-primary">Auto-watch</div>
+                    <div className="text-xs text-text-muted">
+                      {webFolder.watching
+                        ? webFolder.watchStatus ?? "Watching for new exports…"
+                        : "Automatically reload when new reports appear"}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => webFolder.setWatching(!webFolder.watching)}
+                    role="switch"
+                    aria-checked={webFolder.watching}
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                      webFolder.watching ? "bg-accent" : "bg-bg-primary border border-border"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                        webFolder.watching ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Manual file upload — always available as fallback */}
+          <section className="bg-bg-secondary rounded-lg p-4 space-y-3">
+            <h3 className="font-medium text-sm">Upload Character & Inventory</h3>
+            <p className="text-xs text-text-muted">
+              Export your character and inventory from Project Gorgon (F1 → Reports → Export),
+              then upload the JSON files here.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex flex-col gap-1 cursor-pointer">
+                <span className="text-xs text-text-muted">Character file (Character_*.json)</span>
+                <input
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const text = await file.text();
+                      const sheet = parseCharacterSheet(text);
+                      setCharacter(sheet);
+                      addStatus(`✓ Character loaded: ${sheet.Character} @ ${sheet.ServerName}`);
+                    } catch (err) {
+                      addStatus(`✗ Failed to parse character: ${err}`);
+                    }
+                    e.target.value = "";
+                  }}
+                />
+                <span className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-sm text-center transition-colors">
+                  {character ? "↻ Reload Character" : "Choose Character File"}
+                </span>
+              </label>
+
+              <label className="flex flex-col gap-1 cursor-pointer">
+                <span className="text-xs text-text-muted">Inventory file (*_items_*.json)</span>
+                <input
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const text = await file.text();
+                      const inv = parseInventory(text);
+                      setInventory(inv.Items, inv.Timestamp, inv.Character);
+                      addStatus(`✓ Inventory loaded: ${inv.Items.length} items`);
+                    } catch (err) {
+                      addStatus(`✗ Failed to parse inventory: ${err}`);
+                    }
+                    e.target.value = "";
+                  }}
+                />
+                <span className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded text-sm text-center transition-colors">
+                  {inventoryTimestamp ? "↻ Reload Inventory" : "Choose Inventory File"}
+                </span>
+              </label>
+            </div>
+          </section>
+        </>
       )}
 
       {/* Drag-and-drop fallback */}
