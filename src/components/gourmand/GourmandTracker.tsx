@@ -107,12 +107,12 @@ export function GourmandTracker() {
 
   // Global counts for the stat cards (unaffected by any active filter)
   const uneatenCount = useMemo(
-    () => foods.filter((f) => f.hasTracking && !(f.recipeInternalName! in completions)).length,
+    () => foods.filter((f) => !(f.internalName in completions)).length,
     [foods, completions]
   );
   const ownedUneatenCount = useMemo(
     () => foods.filter(
-      (f) => f.hasTracking && !(f.recipeInternalName! in completions) && getItemQuantity(f.itemCode) > 0
+      (f) => !(f.internalName in completions) && getItemQuantity(f.itemCode) > 0
     ).length,
     [foods, completions, getItemQuantity, aggregated]
   );
@@ -201,7 +201,7 @@ export function GourmandTracker() {
 
   // Badge counts for the status filter buttons — reflects current skill/category/etc. filters
   const filteredUneatenCount = useMemo(
-    () => preStatusFiltered.filter((f) => f.hasTracking && !(f.recipeInternalName! in completions)).length,
+    () => preStatusFiltered.filter((f) => !(f.internalName in completions)).length,
     [preStatusFiltered, completions]
   );
 
@@ -233,7 +233,7 @@ export function GourmandTracker() {
   );
 
   const getReadiness = useCallback((food: FoodItem): string => {
-    const isEaten = food.hasTracking && food.recipeInternalName! in completions;
+    const isEaten = food.internalName in completions;
     const qty = getItemQuantity(food.itemCode);
     if (!isEaten && qty > 0) return "Ready to Eat";
     if (isEaten) return "Eaten";
@@ -247,7 +247,7 @@ export function GourmandTracker() {
 
     // Apply uneaten filter
     if (filterUneaten) {
-      results = results.filter((f) => f.hasTracking && !completions[f.recipeInternalName!]);
+      results = results.filter((f) => !(f.internalName in completions));
     }
 
     // Column dropdown filters
@@ -256,7 +256,7 @@ export function GourmandTracker() {
     }
     if (colFilters.isFiltered("eaten")) {
       results = results.filter((f) => {
-        const eaten = f.hasTracking && f.recipeInternalName! in completions ? "Yes" : "No";
+        const eaten = f.internalName in completions ? "Yes" : "No";
         return colFilters.passesFilter("eaten", eaten);
       });
     }
@@ -279,7 +279,7 @@ export function GourmandTracker() {
       else if (sortKey === "status") {
         const rank = (f: typeof a) => {
           if (!f.hasTracking) return 2;
-          return f.recipeInternalName! in completions ? 0 : 1;
+          return f.internalName in completions ? 0 : 1;
         };
         diff = rank(a) - rank(b);
       }
@@ -432,7 +432,7 @@ export function GourmandTracker() {
           <tbody>
             {filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((food) => {
               const qty = getItemQuantity(food.itemCode);
-              const eaten = food.hasTracking && food.recipeInternalName! in completions;
+              const eaten = food.internalName in completions;
               const recipe = recipeByName.get(food.recipeInternalName!);
               const sourceLabels = recipe
                 ? getRecipeSourceLabels(recipe.id, getItemByCode)
