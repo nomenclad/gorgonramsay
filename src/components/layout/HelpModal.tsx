@@ -48,9 +48,71 @@ export function HelpModal({ onClose }: Props) {
             <p>
               Gorgon Ramsay is a cooking companion for Project: Gorgon. To begin, go to
               the <span className="text-accent font-medium">Settings</span> tab, load the
-              game data from the CDN, then import your character JSON file exported from
-              the game. This populates your inventory, known recipes, and skill levels.
+              game data from the CDN, then import your character and inventory files. For
+              accurate Gourmand eaten tracking, also import your Gourmand report file.
             </p>
+          </section>
+
+          <section>
+            <h3 className="text-text-primary font-semibold mb-1">Importing Your Data</h3>
+            <p className="mb-2">
+              Three files can be imported. You can upload them via the buttons in Settings or
+              drag-and-drop them onto the drop zone at the bottom of the page.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-text-primary font-medium">1. Character File (required)</p>
+                <p className="mt-0.5">
+                  In-game, press <span className="text-accent">F1 &rarr; Reports &rarr; Export Character</span>.
+                  This creates a JSON file with your skills, known recipes, and favor data.
+                </p>
+                <div className="mt-1 bg-bg-secondary rounded p-2 text-xs font-mono text-text-muted space-y-0.5">
+                  <p className="text-text-secondary font-sans text-xs font-medium mb-0.5">File locations:</p>
+                  <p><span className="text-accent">Mac:</span> ~/Library/Application Support/unity.Elder Game.Project Gorgon/</p>
+                  <p><span className="text-accent">Windows:</span> %APPDATA%\..\LocalLow\Elder Game\Project Gorgon\</p>
+                </div>
+                <p className="mt-1 text-xs text-text-muted">
+                  Filename pattern: <span className="font-mono">Character_YourName_ServerName.json</span>
+                </p>
+              </div>
+
+              <div>
+                <p className="text-text-primary font-medium">2. Inventory / Storage File (required)</p>
+                <p className="mt-0.5">
+                  In-game, press <span className="text-accent">F1 &rarr; Reports &rarr; Export Storage</span>.
+                  This creates a JSON file listing every item across all your storage vaults.
+                </p>
+                <div className="mt-1 bg-bg-secondary rounded p-2 text-xs font-mono text-text-muted space-y-0.5">
+                  <p className="text-text-secondary font-sans text-xs font-medium mb-0.5">File locations:</p>
+                  <p><span className="text-accent">Mac:</span> ~/Library/Application Support/unity.Elder Game.Project Gorgon/</p>
+                  <p><span className="text-accent">Windows:</span> %APPDATA%\..\LocalLow\Elder Game\Project Gorgon\</p>
+                </div>
+                <p className="mt-1 text-xs text-text-muted">
+                  Filename pattern: <span className="font-mono">YourName_ServerName_items_timestamp.json</span>
+                </p>
+              </div>
+
+              <div>
+                <p className="text-text-primary font-medium">3. Gourmand Eaten Report (optional but recommended)</p>
+                <p className="mt-0.5">
+                  This is a <span className="font-mono">.txt</span> file the game writes automatically to
+                  a <span className="font-mono">Books/</span> subfolder. It lists every food you&apos;ve
+                  eaten for Gourmand XP &mdash; including raw foods like Large Strawberry that
+                  can&apos;t be tracked from the character export. Without this file, the Eaten
+                  column uses crafting data as an estimate.
+                </p>
+                <div className="mt-1 bg-bg-secondary rounded p-2 text-xs font-mono text-text-muted space-y-0.5">
+                  <p className="text-text-secondary font-sans text-xs font-medium mb-0.5">File locations:</p>
+                  <p><span className="text-accent">Mac:</span> ~/Library/Application Support/unity.Elder Game.Project Gorgon/Books/</p>
+                  <p><span className="text-accent">Windows:</span> %APPDATA%\..\LocalLow\Elder Game\Project Gorgon\Books\</p>
+                </div>
+                <p className="mt-1 text-xs text-text-muted">
+                  Look for a <span className="font-mono">.txt</span> file containing
+                  a &ldquo;Foods Consumed:&rdquo; section. The filename varies by character.
+                </p>
+              </div>
+            </div>
           </section>
 
           <section>
@@ -135,7 +197,8 @@ export function HelpModal({ onClose }: Props) {
               <li>Right-click items and recipes for context menus with extra actions.</li>
               <li>Tabs can be reordered &mdash; click the lock icon on the right side of the tab bar.</li>
               <li>Multiple themes are available in Settings.</li>
-              <li>Re-import your character file after playing to keep inventory up to date.</li>
+              <li>Re-import your character and inventory files after playing to keep data up to date.</li>
+              <li>Re-import the Gourmand eaten report after eating new foods to update the Eaten column.</li>
             </ul>
           </section>
         </div>
