@@ -51,6 +51,7 @@ export function loadAreaData(json: string): void {
 export function getVaultZone(key: string | null | undefined): string | null {
   if (!key) return null;
   if (key === "__on_person__") return null; // treated as already on hand, not a vault stop
+  if (key === "Saddlebag") return null;     // saddlebag travels with the player — handled separately
   const entry = vaultMap.get(key);
   if (!entry?.Area || entry.Area === "*") return null;
   const raw = areaDisplayNames.get(entry.Area) ?? entry.Area.replace(/^Area/, "");

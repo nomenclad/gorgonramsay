@@ -167,6 +167,7 @@ interface ZoneStop {
 }
 
 const ON_PERSON_VAULT = "__on_person__";
+const SADDLEBAG_VAULT = "Saddlebag";
 
 type IngredientFilter = "all" | "ready" | "gathering";
 
@@ -278,18 +279,29 @@ export function CookingPlanner({ foods, completions, recipeByName, onClose }: Pr
 
   // ── Gathering route (based on expanded raw materials) ──
   const gatheringRoute = useMemo(() => {
-    if (!inventoryLoaded || foodList.length === 0) return { zoneStops: [], stillNeeded: [] };
+    if (!inventoryLoaded || foodList.length === 0) return { zoneStops: [], stillNeeded: [], saddlebagItems: [] };
 
     const vaultItems = new Map<string, { itemName: string; itemCode: number; toCollect: number }[]>();
+    const saddlebagItems: { itemName: string; itemCode: number; toCollect: number }[] = [];
     const stillNeeded: { itemName: string; itemCode: number; shortfall: number }[] = [];
 
     for (const rm of rawMaterials) {
-      const onPerson = getItemLocations(rm.itemCode).find((l) => l.vault === ON_PERSON_VAULT)?.quantity ?? 0;
+      const locations = getItemLocations(rm.itemCode);
+      const onPerson = locations.find((l) => l.vault === ON_PERSON_VAULT)?.quantity ?? 0;
+      const inSaddlebag = locations.find((l) => l.vault === SADDLEBAG_VAULT)?.quantity ?? 0;
       let shortfall = Math.max(0, rm.needed - onPerson);
       if (shortfall <= 0) continue;
 
-      const storageLocations = getItemLocations(rm.itemCode)
-        .filter((l) => l.vault !== ON_PERSON_VAULT)
+      // Draw from saddlebag before vaults (saddlebag travels with you)
+      if (inSaddlebag > 0 && shortfall > 0) {
+        const fromBag = Math.min(inSaddlebag, shortfall);
+        saddlebagItems.push({ itemName: rm.itemName, itemCode: rm.itemCode, toCollect: fromBag });
+        shortfall -= fromBag;
+      }
+      if (shortfall <= 0) continue;
+
+      const storageLocations = locations
+        .filter((l) => l.vault !== ON_PERSON_VAULT && l.vault !== SADDLEBAG_VAULT)
         .sort((a, b) => b.quantity - a.quantity);
 
       for (const loc of storageLocations) {
@@ -327,7 +339,11 @@ export function CookingPlanner({ foods, completions, recipeByName, onClose }: Pr
         return a.zone.localeCompare(b.zone);
       });
 
-    return { zoneStops, stillNeeded };
+    return {
+      zoneStops,
+      stillNeeded,
+      saddlebagItems: saddlebagItems.sort((a, b) => a.itemName.localeCompare(b.itemName)),
+    };
   }, [foodList, rawMaterials, getItemLocations, inventoryLoaded, fmtVault, cookingZone]);
 
   const allZones = useMemo(() => getAllZones(), []);
@@ -559,6 +575,28 @@ export function CookingPlanner({ foods, completions, recipeByName, onClose }: Pr
                     </ul>
                   </div>
                 )}
+              </div>
+            </section>
+          )}
+
+          {/* ── Saddlebag items to retrieve before cooking ── */}
+          {gatheringRoute.saddlebagItems.length > 0 && (
+            <section>
+              <h3 className="text-xs font-semibold text-accent uppercase tracking-wide mb-3 border-b border-accent/20 pb-1">
+                Retrieve from Saddlebag
+                <span className="ml-2 normal-case font-normal text-text-muted">
+                  — grab these items from your saddlebag before cooking
+                </span>
+              </h3>
+              <div className="flex flex-wrap gap-1">
+                {gatheringRoute.saddlebagItems.map((item) => (
+                  <span
+                    key={item.itemCode}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-accent/10 text-accent"
+                  >
+                    {item.toCollect}× {item.itemName}
+                  </span>
+                ))}
               </div>
             </section>
           )}

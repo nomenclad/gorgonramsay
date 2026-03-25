@@ -274,6 +274,7 @@ export function CookingPlannerPage() {
               <CookingTab
                 plannedRecipes={plannedRecipes}
                 craftingSteps={craftingSteps}
+                saddlebagItems={gatheringRoute.saddlebagItems}
               />
             )}
             {activeSubTab === "route" && (

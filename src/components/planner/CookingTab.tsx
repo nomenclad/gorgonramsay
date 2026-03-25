@@ -13,6 +13,8 @@ import type { CraftingStep } from "./plannerUtils";
 interface Props {
   plannedRecipes: { recipe: Recipe; quantity: number }[];
   craftingSteps: CraftingStep[]; // non-gardening intermediate steps
+  /** Items to grab from the saddlebag at the cooking zone before crafting. */
+  saddlebagItems?: { itemName: string; itemCode: number; toCollect: number }[];
 }
 
 interface SkillGroup {
@@ -21,7 +23,7 @@ interface SkillGroup {
   totalRuns: number;
 }
 
-export function CookingTab({ plannedRecipes, craftingSteps }: Props) {
+export function CookingTab({ plannedRecipes, craftingSteps, saddlebagItems = [] }: Props) {
   const getItemQuantity = useInventoryStore((s) => s.getItemQuantity);
   const getItemByCode = useGameDataStore((s) => s.getItemByCode);
 
@@ -61,6 +63,28 @@ export function CookingTab({ plannedRecipes, craftingSteps }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Saddlebag reminder — items to grab from saddlebag before cooking */}
+      {saddlebagItems.length > 0 && (
+        <div className="bg-accent/5 rounded-lg p-3 border border-accent/20">
+          <div className="text-xs font-semibold text-accent uppercase tracking-wide mb-2">
+            Retrieve from Saddlebag ({saddlebagItems.length} item{saddlebagItems.length !== 1 ? "s" : ""})
+          </div>
+          <p className="text-xs text-text-muted mb-2">
+            These items are in your saddlebag — grab them before you start cooking.
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {saddlebagItems.map((item) => (
+              <span
+                key={item.itemCode}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-accent/10 text-accent"
+              >
+                {item.toCollect}× {item.itemName}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Intermediate crafting steps */}
       {intermediateSteps.length > 0 && (
         <div className="bg-bg-secondary rounded-lg p-3 border border-border">

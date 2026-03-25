@@ -58,6 +58,8 @@ export interface StillNeededItem {
 export interface GatheringRoute {
   zoneStops: ZoneStop[];
   stillNeeded: StillNeededItem[];
+  /** Items to retrieve from the saddlebag at the cooking zone (always with you). */
+  saddlebagItems: { itemName: string; itemCode: number; toCollect: number }[];
 }
 
 // ─── Vendor selection helper ────────────────────────────────────────────────
@@ -317,6 +319,7 @@ export function buildGardenItemSet(
 // ─── Gathering route builder ────────────────────────────────────────────────
 
 const ON_PERSON_VAULT = "__on_person__";
+const SADDLEBAG_VAULT = "Saddlebag";
 
 export function buildGatheringRoute(
   rawMaterials: RawMaterial[],
@@ -325,17 +328,29 @@ export function buildGatheringRoute(
   cookingZone: string
 ): GatheringRoute {
   const vaultItems = new Map<string, { itemName: string; itemCode: number; toCollect: number }[]>();
+  const saddlebagItems: { itemName: string; itemCode: number; toCollect: number }[] = [];
   const stillNeeded: StillNeededItem[] = [];
 
   for (const rm of rawMaterials) {
     const locations = getItemLocations(rm.itemCode);
+    // Items on person and in saddlebag are both "with you" — subtract both first
     const onPerson =
       locations.find((l) => l.vault === ON_PERSON_VAULT)?.quantity ?? 0;
+    const inSaddlebag =
+      locations.find((l) => l.vault === SADDLEBAG_VAULT)?.quantity ?? 0;
     let shortfall = Math.max(0, rm.needed - onPerson);
     if (shortfall <= 0) continue;
 
+    // Draw from saddlebag before going to vaults (saddlebag travels with you)
+    if (inSaddlebag > 0 && shortfall > 0) {
+      const fromBag = Math.min(inSaddlebag, shortfall);
+      saddlebagItems.push({ itemName: rm.itemName, itemCode: rm.itemCode, toCollect: fromBag });
+      shortfall -= fromBag;
+    }
+    if (shortfall <= 0) continue;
+
     const storageLocations = locations
-      .filter((l) => l.vault !== ON_PERSON_VAULT)
+      .filter((l) => l.vault !== ON_PERSON_VAULT && l.vault !== SADDLEBAG_VAULT)
       .sort((a, b) => b.quantity - a.quantity);
     const totalInStorage = storageLocations.reduce((s, l) => s + l.quantity, 0);
 
@@ -384,5 +399,9 @@ export function buildGatheringRoute(
       return a.zone.localeCompare(b.zone);
     });
 
-  return { zoneStops, stillNeeded };
+  return {
+    zoneStops,
+    stillNeeded,
+    saddlebagItems: saddlebagItems.sort((a, b) => a.itemName.localeCompare(b.itemName)),
+  };
 }
