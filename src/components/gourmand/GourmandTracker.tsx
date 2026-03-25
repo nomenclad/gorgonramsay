@@ -13,7 +13,6 @@ import { Pagination } from "../common/Pagination";
 import { ResizableTh, SortableResizableTh, FilterableResizableTh } from "../common/ResizableTh";
 import { useColumnFilters } from "../../hooks/useColumnFilters";
 
-type StatusFilter = "all" | "uneaten" | "owned";
 type CategoryFilter = "all" | "meal" | "snack";
 type SourceTypeFilter = "all" | "foraged" | "crafted";
 type SortKey = "name" | "gourmandLvl" | "xp" | "qty" | "status" | "cancraft";
@@ -47,7 +46,7 @@ export function GourmandTracker() {
     setCtxMenu({ x: e.clientX, y: e.clientY, name, isCrafted });
   }, []);
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [filterUneaten, setFilterUneaten] = useState(false);
   const [sourceTypeFilter, setSourceTypeFilter] = useState<SourceTypeFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [filterLearnable, setFilterLearnable] = useState(false);
@@ -205,10 +204,6 @@ export function GourmandTracker() {
     () => preStatusFiltered.filter((f) => f.hasTracking && !completions[f.recipeInternalName!]).length,
     [preStatusFiltered, completions]
   );
-  const filteredOwnedCount = useMemo(
-    () => preStatusFiltered.filter((f) => getItemQuantity(f.itemCode) > 0).length,
-    [preStatusFiltered, getItemQuantity, aggregated]
-  );
 
   // Unique filter options for column dropdowns
   const canCraftLabel = useCallback((food: FoodItem): string => {
@@ -250,11 +245,9 @@ export function GourmandTracker() {
   const filtered = useMemo(() => {
     let results = preStatusFiltered;
 
-    // Apply status filter on top of everything else
-    if (statusFilter === "uneaten") {
+    // Apply uneaten filter
+    if (filterUneaten) {
       results = results.filter((f) => f.hasTracking && !completions[f.recipeInternalName!]);
-    } else if (statusFilter === "owned") {
-      results = results.filter((f) => getItemQuantity(f.itemCode) > 0);
     }
 
     // Column dropdown filters
@@ -295,7 +288,7 @@ export function GourmandTracker() {
       }
       return sortDir === "asc" ? diff : -diff;
     });
-  }, [preStatusFiltered, statusFilter, sortKey, sortDir, completions, getItemQuantity, aggregated, colFilters, canCraftLabel, getFoodSkill, getReadiness]);
+  }, [preStatusFiltered, filterUneaten, sortKey, sortDir, completions, getItemQuantity, aggregated, colFilters, canCraftLabel, getFoodSkill, getReadiness]);
 
   // Reset page when filters change the result set
   useEffect(() => { setPage(0); }, [filtered.length]);
@@ -375,32 +368,12 @@ export function GourmandTracker() {
           ))}
         </div>
 
-        {/* Status: All / In Inventory / Uneaten */}
-        <div className="flex gap-1 bg-bg-secondary rounded-lg p-1">
-          {(["all", "owned", "uneaten"] as StatusFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              className={`px-3 py-1.5 rounded text-sm transition-colors capitalize ${
-                statusFilter === f
-                  ? "bg-accent text-white"
-                  : "text-text-secondary hover:text-text-primary"
-              }`}
-            >
-              {f === "uneaten"
-                ? `Uneaten (${filteredUneatenCount})`
-                : f === "owned"
-                ? `In Inventory (${filteredOwnedCount})`
-                : "All"}
-            </button>
-          ))}
-        </div>
-
         {/* Toggle filter chips */}
         {character && (
           <div className="flex flex-wrap gap-1.5">
             {(
               [
+                { key: "uneaten",    label: `Uneaten (${filteredUneatenCount})`, active: filterUneaten,     set: setFilterUneaten },
                 { key: "learnable",  label: "Learnable Now", active: filterLearnable,  set: setFilterLearnable },
                 { key: "known",      label: "Recipe Known",  active: filterKnown,      set: setFilterKnown },
                 { key: "ingr",       label: "On Hand",       active: filterIngredients, set: setFilterIngredients },
@@ -632,9 +605,7 @@ export function GourmandTracker() {
         </table>
         {filtered.length === 0 && (
           <div className="text-center py-8 text-text-muted text-sm">
-            {statusFilter === "owned"
-              ? "No Gourmand foods in your inventory."
-              : "No foods match this filter."}
+            No foods match this filter.
           </div>
         )}
       </div>
