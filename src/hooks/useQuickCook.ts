@@ -79,8 +79,8 @@ export function useQuickCook(onAfterQueue?: () => void): QuickCookResult {
     const sorted = [...foods]
       .filter((f) => f.hasTracking)
       .sort((a, b) => {
-        const aEaten = a.recipeInternalName! in completions ? 1 : 0;
-        const bEaten = b.recipeInternalName! in completions ? 1 : 0;
+        const aEaten = a.internalName in completions ? 1 : 0;
+        const bEaten = b.internalName in completions ? 1 : 0;
         if (aEaten !== bEaten) return aEaten - bEaten;
         return b.foodLevel - a.foodLevel;
       });

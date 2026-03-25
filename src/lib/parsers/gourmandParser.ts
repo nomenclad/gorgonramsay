@@ -28,9 +28,11 @@ export interface FoodItem {
    */
   hasTracking: boolean;
   /**
-   * The recipe InternalName used as the key in RecipeCompletions.
-   * This may differ from the item's InternalName (e.g. recipe
+   * The crafting recipe's InternalName (for recipe-known checks).
+   * Differs from the item's InternalName (e.g. recipe
    * "CookingFood_MildCheddarCheese" vs item "MildCheddarCheese").
+   * NOTE: Eaten status in RecipeCompletions is keyed by the item's
+   * internalName, not this field.
    */
   recipeInternalName: string | null;
 }
