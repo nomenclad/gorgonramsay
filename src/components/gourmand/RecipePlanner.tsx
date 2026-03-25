@@ -67,8 +67,8 @@ export function RecipePlanner({ foods, completions, recipeByName, onClose }: Pro
   // Unknown food recipes the character can currently learn (gated by the right skill)
   const learnableFoods = useMemo(() => {
     return foods.filter((f) => {
-      if (!f.hasTracking || f.internalName in completions) return false;
-      const recipe = recipeByName.get(f.internalName);
+      if (!f.hasTracking || f.recipeInternalName! in completions) return false;
+      const recipe = recipeByName.get(f.recipeInternalName!);
       if (!recipe) return false;
       return recipe.SkillLevelReq <= getSkillLevel(recipe.Skill);
     });
@@ -76,8 +76,8 @@ export function RecipePlanner({ foods, completions, recipeByName, onClose }: Pro
 
   const lockedCount = useMemo(() => {
     return foods.filter((f) => {
-      if (!f.hasTracking || f.internalName in completions) return false;
-      const recipe = recipeByName.get(f.internalName);
+      if (!f.hasTracking || f.recipeInternalName! in completions) return false;
+      const recipe = recipeByName.get(f.recipeInternalName!);
       if (!recipe) return false;
       return recipe.SkillLevelReq > getSkillLevel(recipe.Skill);
     }).length;

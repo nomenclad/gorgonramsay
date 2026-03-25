@@ -36,6 +36,7 @@ export function GourmandTracker() {
   const getItemLocations = useInventoryStore((s) => s.getItemLocations);
   const recipeIndexes = useGameDataStore((s) => s.recipeIndexes);
   const character = useCharacterStore((s) => s.character);
+  const eatenFoods = useCharacterStore((s) => s.eatenFoods);
 
   const aggregated = useInventoryStore((s) => s.aggregated);
   const navigateToCraft = useNavStore((s) => s.navigateToCraft);
@@ -114,16 +115,26 @@ export function GourmandTracker() {
     [foods]
   );
 
+  // Helper: check if a food has been eaten.
+  // If the player imported the Gourmand eaten-foods file (from the game's Books/ directory),
+  // we use that for accurate tracking. Otherwise, fall back to crafting data as a proxy.
+  const isEaten = useCallback((food: FoodItem): boolean => {
+    if (eatenFoods) return eatenFoods.has(food.itemName);
+    return food.hasTracking && food.recipeInternalName! in completions;
+  }, [eatenFoods, completions]);
+
+  const hasEatenData = !!eatenFoods;
+
   // Global counts for the stat cards (unaffected by any active filter)
   const uneatenCount = useMemo(
-    () => foods.filter((f) => !(f.internalName in completions)).length,
-    [foods, completions]
+    () => foods.filter((f) => !isEaten(f)).length,
+    [foods, isEaten]
   );
   const ownedUneatenCount = useMemo(
     () => foods.filter(
-      (f) => !(f.internalName in completions) && getItemQuantity(f.itemCode) > 0
+      (f) => !isEaten(f) && getItemQuantity(f.itemCode) > 0
     ).length,
-    [foods, completions, getItemQuantity, aggregated]
+    [foods, isEaten, getItemQuantity, aggregated]
   );
 
   // Helper: check if all recipe ingredients are in inventory
@@ -217,8 +228,8 @@ export function GourmandTracker() {
 
   // Badge counts for the status filter buttons — reflects current skill/category/etc. filters
   const filteredUneatenCount = useMemo(
-    () => preStatusFiltered.filter((f) => !(f.internalName in completions)).length,
-    [preStatusFiltered, completions]
+    () => preStatusFiltered.filter((f) => !isEaten(f)).length,
+    [preStatusFiltered, isEaten]
   );
 
   // Unique filter options for column dropdowns
@@ -250,15 +261,14 @@ export function GourmandTracker() {
 
   // Readiness states for the Status column:
   // "Ready to Eat" = not yet eaten AND the item is in the player's inventory
-  // "Eaten" = the food's recipe InternalName exists in completions (already consumed for XP)
+  // "Eaten" = the isEaten helper returns true (from eaten-foods file or crafting proxy)
   // "Not in Inventory" = not eaten and not currently held
   const getReadiness = useCallback((food: FoodItem): string => {
-    const isEaten = food.internalName in completions;
     const qty = getItemQuantity(food.itemCode);
-    if (!isEaten && qty > 0) return "Ready to Eat";
-    if (isEaten) return "Eaten";
+    if (isEaten(food)) return "Eaten";
+    if (qty > 0) return "Ready to Eat";
     return "Not in Inventory";
-  }, [completions, getItemQuantity]);
+  }, [isEaten, getItemQuantity]);
 
   const readinessOptions = ["Ready to Eat", "Not in Inventory", "Eaten"];
 
@@ -267,7 +277,7 @@ export function GourmandTracker() {
 
     // Apply uneaten filter
     if (filterUneaten) {
-      results = results.filter((f) => !(f.internalName in completions));
+      results = results.filter((f) => !isEaten(f));
     }
 
     // Column dropdown filters
@@ -276,7 +286,7 @@ export function GourmandTracker() {
     }
     if (colFilters.isFiltered("eaten")) {
       results = results.filter((f) => {
-        const eaten = f.internalName in completions ? "Yes" : "No";
+        const eaten = isEaten(f) ? "Yes" : "No";
         return colFilters.passesFilter("eaten", eaten);
       });
     }
@@ -298,8 +308,7 @@ export function GourmandTracker() {
       else if (sortKey === "qty") diff = getItemQuantity(a.itemCode) - getItemQuantity(b.itemCode);
       else if (sortKey === "status") {
         const rank = (f: typeof a) => {
-          if (!f.hasTracking) return 2;
-          return f.internalName in completions ? 0 : 1;
+          return isEaten(f) ? 0 : 1;
         };
         diff = rank(a) - rank(b);
       }
@@ -308,7 +317,7 @@ export function GourmandTracker() {
       }
       return sortDir === "asc" ? diff : -diff;
     });
-  }, [preStatusFiltered, filterUneaten, sortKey, sortDir, completions, getItemQuantity, aggregated, colFilters, canCraftLabel, getFoodSkill, getReadiness]);
+  }, [preStatusFiltered, filterUneaten, sortKey, sortDir, completions, getItemQuantity, aggregated, colFilters, canCraftLabel, getFoodSkill, getReadiness, isEaten]);
 
   // Reset page when filters change the result set
   useEffect(() => { setPage(0); }, [filtered.length]);
@@ -342,7 +351,7 @@ export function GourmandTracker() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="Gourmand Level" value={gourmandLevel.toString()} />
         <StatCard label="Total Foods" value={foods.length.toString()} />
-        <StatCard label="Uneaten (tracked)" value={uneatenCount.toString()} highlight={uneatenCount > 0} />
+        <StatCard label={hasEatenData ? "Uneaten" : "Uneaten (est.)"} value={uneatenCount.toString()} highlight={uneatenCount > 0} />
         <StatCard label="Ready to Eat" value={ownedUneatenCount.toString()} highlight={ownedUneatenCount > 0} success />
       </div>
 
@@ -442,7 +451,7 @@ export function GourmandTracker() {
                 filterOptions={skillOptions} filterSelected={colFilters.filters["skill"] ?? new Set()} onFilterChange={(s) => colFilters.setFilter("skill", s)} />
               <SortableResizableTh label="Can Craft" col="cancraft" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} width={colW[7]} onStartResize={(x) => startResize(7, x)}
                 filterOptions={canCraftOptions} filterSelected={colFilters.filters["cancraft"] ?? new Set()} onFilterChange={(s) => colFilters.setFilter("cancraft", s)} />
-              <FilterableResizableTh label="Eaten?" width={colW[8]} onStartResize={(x) => startResize(8, x)}
+              <FilterableResizableTh label={hasEatenData ? "Eaten?" : "Eaten? (est.)"} width={colW[8]} onStartResize={(x) => startResize(8, x)}
                 filterOptions={eatenOptions} filterSelected={colFilters.filters["eaten"] ?? new Set()} onFilterChange={(s) => colFilters.setFilter("eaten", s)} />
               <SortableResizableTh label="Recipe" col="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} width={colW[9]} onStartResize={(x) => startResize(9, x)} />
               <ResizableTh width={colW[10]} onStartResize={(x) => startResize(10, x)}>Recipe Source</ResizableTh>
@@ -452,7 +461,7 @@ export function GourmandTracker() {
           <tbody>
             {filtered.slice(page * DEFAULT_PAGE_SIZE, (page + 1) * DEFAULT_PAGE_SIZE).map((food) => {
               const qty = getItemQuantity(food.itemCode);
-              const eaten = food.internalName in completions;
+              const eaten = isEaten(food);
               const recipe = recipeByName.get(food.recipeInternalName!);
               const sourceLabels = recipe
                 ? getRecipeSourceLabels(recipe.id, getItemByCode)

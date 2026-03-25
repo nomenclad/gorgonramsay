@@ -5,8 +5,12 @@
  * - Food items have a `FoodDesc` field like "Level 20 Meal" or "Level 0 Snack".
  * - The XP amount for a food at food-level N is xpTable.XpAmounts[N]
  *   from the table with InternalName "Gourmand" (Table_12).
- * - Eaten status is tracked in CharacterSheet.RecipeCompletions keyed by the
- *   food item's InternalName (e.g. "GoblinBread"), NOT "EatItem:xxx".
+ *
+ * NOTE: The /exportcharacter JSON does NOT include eaten-food tracking.
+ * RecipeCompletions only records which recipes have been crafted and how
+ * many times. We use crafting data as the best available proxy — if a
+ * cooking recipe has been completed, the player likely also ate the food.
+ * Raw/foraged foods (no cooking recipe) cannot be tracked at all.
  */
 
 import type { Item } from "../../types/item";
@@ -23,16 +27,15 @@ export interface FoodItem {
   effects: string[];
   /**
    * True when a crafting recipe produces this food item (matched via
-   * ResultItems.ItemCode). Only for these foods can eaten status be
-   * reliably inferred from RecipeCompletions.
+   * ResultItems.ItemCode). Only for these foods can crafted status be
+   * determined from RecipeCompletions. Raw/foraged foods are false.
    */
   hasTracking: boolean;
   /**
-   * The crafting recipe's InternalName (for recipe-known checks).
-   * Differs from the item's InternalName (e.g. recipe
-   * "CookingFood_MildCheddarCheese" vs item "MildCheddarCheese").
-   * NOTE: Eaten status in RecipeCompletions is keyed by the item's
-   * internalName, not this field.
+   * The cooking recipe's InternalName — used to check RecipeCompletions
+   * for crafting status. May differ from the item's InternalName
+   * (e.g. recipe "CookingFood_MildCheddarCheese" vs item "MildCheddarCheese").
+   * Null for raw/foraged foods that have no crafting recipe.
    */
   recipeInternalName: string | null;
 }
