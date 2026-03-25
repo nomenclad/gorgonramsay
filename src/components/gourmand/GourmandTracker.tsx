@@ -361,8 +361,8 @@ export function GourmandTracker() {
           {(
             [
               { key: "all" as const, label: `All (${foods.length})`, tip: "Show all food types" },
-              { key: "meal" as const, label: `Meals (${mealCount})`, tip: "Show only meals (one meal slot per eating)" },
-              { key: "snack" as const, label: `Snacks (${snackCount})`, tip: "Show only snacks (one snack slot per eating)" },
+              { key: "meal" as const, label: `Meals (${mealCount})`, tip: "Show only meals" },
+              { key: "snack" as const, label: `Snacks (${snackCount})`, tip: "Show only snacks" },
             ]
           ).map(({ key, label, tip }) => (
             <button
