@@ -22,6 +22,7 @@ import { DEFAULT_PAGE_SIZE } from "../../lib/config";
 
 type CategoryFilter = "all" | "meal" | "snack";
 type SourceTypeFilter = "all" | "foraged" | "crafted";
+type RecipeKnowledgeFilter = "all" | "learnable" | "known";
 type SortKey = "name" | "gourmandLvl" | "xp" | "qty" | "status" | "cancraft";
 type SortDir = "asc" | "desc";
 
@@ -57,8 +58,7 @@ export function GourmandTracker() {
   const [filterUneaten, setFilterUneaten] = useState(false);
   const [sourceTypeFilter, setSourceTypeFilter] = useState<SourceTypeFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
-  const [filterLearnable, setFilterLearnable] = useState(false);
-  const [filterKnown, setFilterKnown] = useState(false);
+  const [recipeKnowledgeFilter, setRecipeKnowledgeFilter] = useState<RecipeKnowledgeFilter>("all");
   const [filterIngredients, setFilterIngredients] = useState(false);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("gourmandLvl");
@@ -201,20 +201,19 @@ export function GourmandTracker() {
       results = results.filter((f) => f.hasTracking);
     }
 
-    // Toggle filters
-    if (filterLearnable && character) {
+    // Recipe knowledge filter (mutually exclusive toggle)
+    if (recipeKnowledgeFilter === "learnable" && character) {
       results = results.filter((f) => {
         if (!f.hasTracking) return false;
-        // Must not already be known
         if (f.recipeInternalName! in completions) return false;
         const recipe = recipeByName.get(f.recipeInternalName!);
         if (!recipe) return false;
         return (character.Skills[recipe.Skill]?.Level ?? 0) >= recipe.SkillLevelReq;
       });
-    }
-    if (filterKnown) {
+    } else if (recipeKnowledgeFilter === "known") {
       results = results.filter((f) => f.hasTracking && f.recipeInternalName! in completions);
     }
+
     if (filterIngredients) {
       results = results.filter((f) => f.hasTracking && hasAllIngredients(f));
     }
@@ -222,7 +221,7 @@ export function GourmandTracker() {
     return results;
   }, [
     foods, selectedSkill, categoryFilter, search, sourceTypeFilter,
-    filterLearnable, filterKnown, filterIngredients,
+    recipeKnowledgeFilter, filterIngredients,
     completions, getItemQuantity, character, recipeByName,
   ]);
 
@@ -397,14 +396,31 @@ export function GourmandTracker() {
           ))}
         </div>
 
+        {/* Recipe knowledge: All / Learnable Now / Recipe Known */}
+        {character && (
+          <div className="flex gap-1 bg-bg-secondary rounded-lg p-1">
+            {(["all", "learnable", "known"] as RecipeKnowledgeFilter[]).map((k) => (
+              <button
+                key={k}
+                onClick={() => setRecipeKnowledgeFilter(k)}
+                className={`px-3 py-1.5 rounded text-sm transition-colors ${
+                  recipeKnowledgeFilter === k
+                    ? "bg-accent text-white"
+                    : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                {k === "all" ? "All" : k === "learnable" ? "Learnable Now" : "Recipe Known"}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Toggle filter chips */}
         {character && (
           <div className="flex flex-wrap gap-1.5">
             {(
               [
                 { key: "uneaten",    label: `Uneaten (${filteredUneatenCount})`, active: filterUneaten,     set: setFilterUneaten },
-                { key: "learnable",  label: "Learnable Now", active: filterLearnable,  set: setFilterLearnable },
-                { key: "known",      label: "Recipe Known",  active: filterKnown,      set: setFilterKnown },
                 { key: "ingr",       label: "On Hand",       active: filterIngredients, set: setFilterIngredients },
               ] as const
             ).map(({ key, label, active, set }) => (
