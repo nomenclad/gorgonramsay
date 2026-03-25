@@ -111,7 +111,7 @@ export function CookingPlannerPage() {
   const gatheringRoute: GatheringRoute = useMemo(
     () =>
       plannedRecipes.length === 0
-        ? { zoneStops: [], stillNeeded: [] }
+        ? { zoneStops: [], stillNeeded: [], saddlebagItems: [] }
         : buildGatheringRoute(rawMaterials, getItemLocations, fmtVault, cookingZone),
     [plannedRecipes, rawMaterials, getItemLocations, fmtVault, cookingZone, inventoryData]
   );
