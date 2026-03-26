@@ -16,6 +16,7 @@ import {
 } from "../../lib/parsers/recipeParser";
 import { parseItems, buildItemIndexes } from "../../lib/parsers/itemParser";
 import { parseCharacterSheet } from "../../lib/parsers/characterParser";
+import type { CharacterSheet } from "../../types/character";
 import { parseInventory } from "../../lib/parsers/inventoryParser";
 import { parseEatenFoods } from "../../lib/parsers/eatenFoodsParser";
 import { parseXpTables } from "../../lib/parsers/xpTableParser";
@@ -71,14 +72,10 @@ export function SettingsPage() {
   const loading = useGameDataStore((s) => s.loading);
   const loaded = useGameDataStore((s) => s.loaded);
   const sourcesLoaded = useGameDataStore((s) => s.sourcesLoaded);
-  const setCharacter = useCharacterStore((s) => s.setCharacter);
-  const setEatenFoods = useCharacterStore((s) => s.setEatenFoods);
   const eatenFoods = useCharacterStore((s) => s.eatenFoods);
   const setInventory = useInventoryStore((s) => s.setInventory);
   const character = useCharacterStore((s) => s.character);
   const inventoryTimestamp = useInventoryStore((s) => s.importTimestamp);
-  const altStore = useAltStore();
-  const altCount = useAltStore((s) => s.alts.size);
 
   const [pgPath, setPgPath] = useState<string | null>(null);
   const [reportFiles, setReportFiles] = useState<ReportFile[]>([]);
