@@ -10,12 +10,12 @@ import { useGameDataStore } from "../../stores/gameDataStore";
 import { pickBestVendor } from "./plannerUtils";
 import { formatSkillName } from "../../lib/foodSkills";
 import type { Recipe } from "../../types/recipe";
-import type { GatheringRoute, CraftingStep, StillNeededItem, AltTransferItem } from "./plannerUtils";
+import type { GatheringRoute, CraftingStep, StillNeededItem } from "./plannerUtils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface RouteAction {
-  type: "buy_recipe" | "storage" | "vendor_buy" | "forage" | "garden" | "cook" | "alt_deposit" | "transfer_pickup";
+  type: "buy_recipe" | "storage" | "vendor_buy" | "forage" | "garden" | "cook";
   label: string;
   items: { name: string; qty?: number; detail?: string }[];
 }
@@ -50,8 +50,6 @@ const ACTION_ICONS: Record<RouteAction["type"], string> = {
   forage: "🌿",
   garden: "🌱",
   cook: "🍳",
-  alt_deposit: "🔄",
-  transfer_pickup: "📬",
 };
 
 const ACTION_LABELS: Record<RouteAction["type"], string> = {
@@ -61,8 +59,6 @@ const ACTION_LABELS: Record<RouteAction["type"], string> = {
   forage: "Forage / Farm",
   garden: "Plant Garden",
   cook: "Cook Recipes",
-  alt_deposit: "Alt Deposits to Transfer Chest",
-  transfer_pickup: "Pick Up from Transfer Chest",
 };
 
 // ─── Component ──────────────────────────────────────────────────────────────
