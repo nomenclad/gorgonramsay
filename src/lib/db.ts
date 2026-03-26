@@ -149,3 +149,14 @@ export async function getUserFile(key: string): Promise<string | null> {
   const row = await db.userFiles.get(key);
   return row?.content ?? null;
 }
+
+/**
+ * List all userFile keys matching a prefix (e.g. "character:" to find all alt characters).
+ * Returns the full keys, not stripped of the prefix.
+ */
+export async function listUserFileKeys(prefix: string): Promise<string[]> {
+  const allRows = await db.userFiles.toArray();
+  return allRows
+    .map((r) => r.key)
+    .filter((k) => k.startsWith(prefix));
+}

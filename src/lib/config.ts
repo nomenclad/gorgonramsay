@@ -65,3 +65,11 @@ export function wikiUrl(name: string): string {
  * To change the page size for all tables, update this value.
  */
 export const DEFAULT_PAGE_SIZE = 100;
+
+/**
+ * Zones that have Transfer Chests (account-shared storage).
+ * Alts can deposit items into any Transfer Chest; the main character
+ * picks them up from whichever zone is most convenient on their route.
+ * To add new Transfer Chest locations, append the zone name here.
+ */
+export const TRANSFER_CHEST_ZONES = ["Serbule", "Serbule Hills", "Kur Mountains", "Rahu"];

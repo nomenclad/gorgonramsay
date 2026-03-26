@@ -9,6 +9,7 @@ import { isTauri, supportsFileSystemAccess } from "../../lib/platform";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useCharacterStore } from "../../stores/characterStore";
 import { useInventoryStore } from "../../stores/inventoryStore";
+import { useAltStore, charId } from "../../stores/altStore";
 import {
   parseRecipes,
   buildRecipeIndexes,
@@ -76,6 +77,8 @@ export function SettingsPage() {
   const setInventory = useInventoryStore((s) => s.setInventory);
   const character = useCharacterStore((s) => s.character);
   const inventoryTimestamp = useInventoryStore((s) => s.importTimestamp);
+  const altStore = useAltStore();
+  const altCount = useAltStore((s) => s.alts.size);
 
   const [pgPath, setPgPath] = useState<string | null>(null);
   const [reportFiles, setReportFiles] = useState<ReportFile[]>([]);
@@ -102,6 +105,49 @@ export function SettingsPage() {
 
   const webFolder = useWebFolderWatch(addStatus);
 
+  // --- Multi-character import helpers ---
+  // Routes character/inventory imports through altStore and persists with character-keyed keys.
+  const importCharacter = useCallback((sheet: CharacterSheet, json: string) => {
+    const id = charId(sheet.Character, sheet.ServerName);
+    const as = useAltStore.getState();
+    as.loadCharacter(sheet);
+    // If this is the first character or matches active, set as active
+    if (!as.activeCharId || as.activeCharId === id) {
+      as.setActiveCharacter(id);
+    } else {
+      // New alt detected — still set active to keep legacy stores in sync
+      // but user can switch later via the header dropdown
+    }
+    storeUserFile(`character:${id}`, json).catch(() => {});
+    return id;
+  }, []);
+
+  const importInventory = useCallback((inv: import("../../types/inventory").InventoryExport, json: string) => {
+    const id = charId(inv.Character, inv.ServerName);
+    const as = useAltStore.getState();
+    // If we have this character loaded, update their inventory
+    if (as.alts.has(id)) {
+      as.loadInventory(id, inv.Items, inv.Timestamp);
+    } else {
+      // Character not yet loaded — still store it, will be picked up on next hydrate
+    }
+    // Also update legacy stores if this is the active character
+    if (as.activeCharId === id) {
+      setInventory(inv.Items, inv.Timestamp, inv.Character);
+    }
+    storeUserFile(`inventory:${id}`, json).catch(() => {});
+    return id;
+  }, [setInventory]);
+
+  const importEatenFoods = useCallback((eaten: Map<string, number>, text: string) => {
+    const as = useAltStore.getState();
+    const activeId = as.activeCharId;
+    if (activeId) {
+      as.loadEatenFoods(activeId, eaten);
+      storeUserFile(`eatenFoods:${activeId}`, text).catch(() => {});
+    }
+  }, []);
+
   // Keep pgPathRef in sync
   useEffect(() => { pgPathRef.current = pgPath; }, [pgPath]);
 
@@ -119,11 +165,10 @@ export function SettingsPage() {
     try {
       const json = await readFileContent(source, charFile.path);
       const sheet = parseCharacterSheet(json);
-      setCharacter(sheet);
-      storeUserFile("character", json).catch(() => {});
+      importCharacter(sheet, json);
       setAutoWatchStatus(`Character updated at ${new Date().toLocaleTimeString()}`);
     } catch { /* silent */ }
-  }, [setCharacter]);
+  }, [importCharacter]);
 
   const silentLoadInventory = useCallback(async (files: ReportFile[]) => {
     const source = isTauri ? pgPathRef.current : dirHandleRef.current;
@@ -135,11 +180,10 @@ export function SettingsPage() {
     try {
       const json = await readFileContent(source, invFiles[0].path);
       const inv = parseInventory(json);
-      setInventory(inv.Items, inv.Timestamp, inv.Character);
-      storeUserFile("inventory", json).catch(() => {});
+      importInventory(inv, json);
       setAutoWatchStatus(`Inventory updated at ${new Date().toLocaleTimeString()}`);
     } catch { /* silent */ }
-  }, [setInventory]);
+  }, [importInventory]);
 
   // Auto-watch polling effect — checks every 5s for new/updated report files
   useEffect(() => {
@@ -330,13 +374,12 @@ export function SettingsPage() {
     try {
       const json = await readFileContent(source, charFile.path);
       const sheet = parseCharacterSheet(json);
-      setCharacter(sheet);
-      storeUserFile("character", json).catch(() => {});
+      importCharacter(sheet, json);
       addStatus(`✓ Character loaded: ${sheet.Character} @ ${sheet.ServerName} — ${Object.keys(sheet.Skills).length} skills`);
     } catch (e) {
       addStatus(`✗ Error loading character: ${e}`);
     }
-  }, [reportFiles, addStatus, setCharacter, pgPath]);
+  }, [reportFiles, addStatus, importCharacter, pgPath]);
 
   const loadInventory = useCallback(async () => {
     const source = isTauri ? pgPath : dirHandleRef.current;
@@ -348,8 +391,7 @@ export function SettingsPage() {
     try {
       const json = await readFileContent(source, invFiles[0].path);
       const inv = parseInventory(json);
-      setInventory(inv.Items, inv.Timestamp, inv.Character);
-      storeUserFile("inventory", json).catch(() => {});
+      importInventory(inv, json);
       addStatus(`✓ Inventory loaded: ${inv.Items.length} items from "${invFiles[0].filename}"`);
     } catch (e) {
       addStatus(`✗ Error loading inventory: ${e}`);
@@ -388,14 +430,12 @@ export function SettingsPage() {
           addStatus(`✓ NPC data loaded: ${npcMap.size} NPCs (drag-drop)`);
         } else if (file.name.startsWith("Character_")) {
           const sheet = parseCharacterSheet(text);
-          setCharacter(sheet);
-          storeUserFile("character", text).catch(() => {});
-          addStatus(`✓ Character loaded: ${sheet.Character} (drag-drop)`);
+          importCharacter(sheet, text);
+          addStatus(`✓ Character loaded: ${sheet.Character} @ ${sheet.ServerName} (drag-drop)`);
         } else if (file.name.includes("_items_")) {
           const inv = parseInventory(text);
-          setInventory(inv.Items, inv.Timestamp, inv.Character);
-          storeUserFile("inventory", text).catch(() => {});
-          addStatus(`✓ ${inv.Items.length} inventory items loaded (drag-drop)`);
+          importInventory(inv, text);
+          addStatus(`✓ ${inv.Items.length} inventory items loaded for ${inv.Character} (drag-drop)`);
         } else if (file.name === "sources_recipes.json") {
           const sources = parseSourcesData(text);
           setRecipeSources(sources);
@@ -406,8 +446,7 @@ export function SettingsPage() {
         } else if (file.name.endsWith(".txt") && text.includes("Foods Consumed:")) {
           const eaten = parseEatenFoods(text);
           if (eaten) {
-            setEatenFoods(eaten);
-            storeUserFile("eatenFoods", text).catch(() => {});
+            importEatenFoods(eaten, text);
             addStatus(`✓ Gourmand eaten data loaded: ${eaten.size} foods (drag-drop)`);
           } else {
             addStatus(`✗ No 'Foods Consumed' section found in ${file.name}`);
@@ -417,7 +456,7 @@ export function SettingsPage() {
         }
       }
     },
-    [addStatus, setRecipes, setItems, setXpTables, setSources, setRecipeSources, setNpcNames, setItemUsesJson, setCharacter, setInventory, setEatenFoods]
+    [addStatus, setRecipes, setItems, setXpTables, setSources, setRecipeSources, setNpcNames, setItemUsesJson, importCharacter, importInventory, importEatenFoods]
   );
 
   return (
@@ -740,8 +779,7 @@ export function SettingsPage() {
                     try {
                       const text = await file.text();
                       const sheet = parseCharacterSheet(text);
-                      setCharacter(sheet);
-                      storeUserFile("character", text).catch(() => {});
+                      importCharacter(sheet, text);
                       addStatus(`✓ Character loaded: ${sheet.Character} @ ${sheet.ServerName}`);
                     } catch (err) {
                       addStatus(`✗ Failed to parse character: ${err}`);
@@ -766,9 +804,8 @@ export function SettingsPage() {
                     try {
                       const text = await file.text();
                       const inv = parseInventory(text);
-                      setInventory(inv.Items, inv.Timestamp, inv.Character);
-                      storeUserFile("inventory", text).catch(() => {});
-                      addStatus(`✓ Inventory loaded: ${inv.Items.length} items`);
+                      importInventory(inv, text);
+                      addStatus(`✓ Inventory loaded: ${inv.Items.length} items for ${inv.Character}`);
                     } catch (err) {
                       addStatus(`✗ Failed to parse inventory: ${err}`);
                     }
@@ -796,8 +833,7 @@ export function SettingsPage() {
                         addStatus("✗ No 'Foods Consumed' section found in file");
                         return;
                       }
-                      setEatenFoods(eaten);
-                      storeUserFile("eatenFoods", text).catch(() => {});
+                      importEatenFoods(eaten, text);
                       addStatus(`✓ Gourmand eaten data loaded: ${eaten.size} foods consumed`);
                     } catch (err) {
                       addStatus(`✗ Failed to parse eaten foods: ${err}`);

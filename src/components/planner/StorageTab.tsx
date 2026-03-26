@@ -13,9 +13,16 @@ interface Props {
 }
 
 export function StorageTab({ gatheringRoute, cookingZone, viewMode = "list" }: Props) {
-  const { zoneStops } = gatheringRoute;
+  const { zoneStops, altTransfers } = gatheringRoute;
 
-  if (zoneStops.length === 0) {
+  // Group alt transfers by character
+  const altTransfersByChar = altTransfers.reduce((acc, t) => {
+    if (!acc.has(t.fromCharacter)) acc.set(t.fromCharacter, []);
+    acc.get(t.fromCharacter)!.push(t);
+    return acc;
+  }, new Map<string, typeof altTransfers>());
+
+  if (zoneStops.length === 0 && altTransfers.length === 0) {
     return (
       <div className="text-center py-8 text-text-muted text-sm">
         No items need to be retrieved from storage. Everything is on your person or needs to be acquired.
@@ -36,6 +43,39 @@ export function StorageTab({ gatheringRoute, cookingZone, viewMode = "list" }: P
         Visit these vaults to collect ingredients. Zones are ordered to minimize travel —
         your cooking zone ({cookingZone || "not set"}) is listed last.
       </p>
+
+      {/* Alt character transfers via Transfer Chest */}
+      {altTransfersByChar.size > 0 && (
+        <div className="bg-amber-400/5 rounded-lg p-3 border border-amber-400/20">
+          <div className="text-xs font-semibold text-amber-400 uppercase tracking-wide mb-2">
+            Transfer from Alt Characters
+          </div>
+          <p className="text-xs text-text-muted mb-3">
+            Log in to each alt and deposit these items into any Transfer Chest.
+            Then pick them up from a Transfer Chest on your main character.
+          </p>
+          <div className="space-y-3">
+            {Array.from(altTransfersByChar.entries()).map(([charName, items]) => (
+              <div key={charName}>
+                <div className="text-sm font-medium text-amber-400 mb-1">
+                  {charName}
+                </div>
+                <div className="flex flex-wrap gap-1 ml-2">
+                  {items.map((item, i) => (
+                    <span
+                      key={`${item.itemCode}-${i}`}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-amber-400/10 text-amber-400"
+                    >
+                      {item.quantity}× {item.itemName}
+                      <span className="text-amber-400/60">({item.fromVault})</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {viewMode === "card" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">

@@ -31,6 +31,8 @@ interface PlannerState {
 
   gardeningZone: string;
   cookingZone: string;
+  /** Character ID of who will do the crafting. Empty = active character. */
+  craftingCharId: string;
 
   // Actions
   starRecipe: (recipeId: string, internalName: string, qty?: number) => void;
@@ -40,11 +42,12 @@ interface PlannerState {
   clearAll: () => void;
   setGardeningZone: (zone: string) => void;
   setCookingZone: (zone: string) => void;
+  setCraftingCharId: (id: string) => void;
 }
 
 const STORAGE_KEY = "plannerStore";
 
-function loadPersisted(): Partial<Pick<PlannerState, "entries" | "gardeningZone" | "cookingZone">> {
+function loadPersisted(): Partial<Pick<PlannerState, "entries" | "gardeningZone" | "cookingZone" | "craftingCharId">> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -53,6 +56,7 @@ function loadPersisted(): Partial<Pick<PlannerState, "entries" | "gardeningZone"
         entries: parsed.entries ?? {},
         gardeningZone: parsed.gardeningZone ?? "",
         cookingZone: parsed.cookingZone ?? "",
+        craftingCharId: parsed.craftingCharId ?? "",
       };
     }
   } catch (e) {
@@ -69,6 +73,7 @@ function persist(state: PlannerState) {
         entries: state.entries,
         gardeningZone: state.gardeningZone,
         cookingZone: state.cookingZone,
+        craftingCharId: state.craftingCharId,
       })
     );
   } catch (e) {
@@ -83,6 +88,7 @@ export const usePlannerStore = create<PlannerState>((set, get) => {
     entries: persisted.entries ?? {},
     gardeningZone: persisted.gardeningZone ?? "",
     cookingZone: persisted.cookingZone ?? "",
+    craftingCharId: persisted.craftingCharId ?? "",
 
     starRecipe: (recipeId, internalName, qty = 1) => {
       set((s) => {
@@ -148,6 +154,14 @@ export const usePlannerStore = create<PlannerState>((set, get) => {
     setCookingZone: (zone) => {
       set((s) => {
         const next = { ...s, cookingZone: zone };
+        persist(next);
+        return next;
+      });
+    },
+
+    setCraftingCharId: (id) => {
+      set((s) => {
+        const next = { ...s, craftingCharId: id };
         persist(next);
         return next;
       });

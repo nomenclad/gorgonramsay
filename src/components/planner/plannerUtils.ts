@@ -55,11 +55,24 @@ export interface StillNeededItem {
   inStorage: number;
 }
 
+/** An item that needs to be transferred from an alt character via Transfer Chest. */
+export interface AltTransferItem {
+  itemName: string;
+  itemCode: number;
+  quantity: number;
+  /** Name of the alt character who has this item. */
+  fromCharacter: string;
+  /** Vault where the alt has it stored. */
+  fromVault: string;
+}
+
 export interface GatheringRoute {
   zoneStops: ZoneStop[];
   stillNeeded: StillNeededItem[];
   /** Items to retrieve from the saddlebag at the cooking zone (always with you). */
   saddlebagItems: { itemName: string; itemCode: number; toCollect: number }[];
+  /** Items to transfer from alt characters via Transfer Chest. */
+  altTransfers: AltTransferItem[];
 }
 
 // ─── Vendor selection helper ────────────────────────────────────────────────
@@ -325,10 +338,13 @@ export function buildGatheringRoute(
   rawMaterials: RawMaterial[],
   getItemLocations: (code: number) => { vault: string; quantity: number }[],
   fmtVault: (key: string) => string,
-  cookingZone: string
+  cookingZone: string,
+  /** Optional: item locations from alt characters for cross-character gathering. */
+  altItemLocations?: (typeId: number) => import("../../stores/altStore").AltItemLocation[],
 ): GatheringRoute {
   const vaultItems = new Map<string, { itemName: string; itemCode: number; toCollect: number }[]>();
   const saddlebagItems: { itemName: string; itemCode: number; toCollect: number }[] = [];
+  const altTransfers: AltTransferItem[] = [];
   const stillNeeded: StillNeededItem[] = [];
 
   for (const rm of rawMaterials) {
@@ -362,6 +378,23 @@ export function buildGatheringRoute(
         .get(loc.vault)!
         .push({ itemName: rm.itemName, itemCode: rm.itemCode, toCollect });
       shortfall -= toCollect;
+    }
+
+    // Check alt characters for remaining shortfall
+    if (shortfall > 0 && altItemLocations) {
+      const altLocs = altItemLocations(rm.itemCode);
+      for (const altLoc of altLocs) {
+        if (shortfall <= 0) break;
+        const fromAlt = Math.min(altLoc.quantity, shortfall);
+        altTransfers.push({
+          itemName: rm.itemName,
+          itemCode: rm.itemCode,
+          quantity: fromAlt,
+          fromCharacter: altLoc.charName,
+          fromVault: fmtVault(altLoc.vault),
+        });
+        shortfall -= fromAlt;
+      }
     }
 
     if (shortfall > 0) {
@@ -403,5 +436,6 @@ export function buildGatheringRoute(
     zoneStops,
     stillNeeded,
     saddlebagItems: saddlebagItems.sort((a, b) => a.itemName.localeCompare(b.itemName)),
+    altTransfers: altTransfers.sort((a, b) => a.fromCharacter.localeCompare(b.fromCharacter) || a.itemName.localeCompare(b.itemName)),
   };
 }

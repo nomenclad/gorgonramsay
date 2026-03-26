@@ -10,12 +10,12 @@ import { useGameDataStore } from "../../stores/gameDataStore";
 import { pickBestVendor } from "./plannerUtils";
 import { formatSkillName } from "../../lib/foodSkills";
 import type { Recipe } from "../../types/recipe";
-import type { GatheringRoute, CraftingStep, StillNeededItem } from "./plannerUtils";
+import type { GatheringRoute, CraftingStep, StillNeededItem, AltTransferItem } from "./plannerUtils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface RouteAction {
-  type: "buy_recipe" | "storage" | "vendor_buy" | "forage" | "garden" | "cook";
+  type: "buy_recipe" | "storage" | "vendor_buy" | "forage" | "garden" | "cook" | "alt_deposit" | "transfer_pickup";
   label: string;
   items: { name: string; qty?: number; detail?: string }[];
 }
@@ -50,6 +50,8 @@ const ACTION_ICONS: Record<RouteAction["type"], string> = {
   forage: "🌿",
   garden: "🌱",
   cook: "🍳",
+  alt_deposit: "🔄",
+  transfer_pickup: "📬",
 };
 
 const ACTION_LABELS: Record<RouteAction["type"], string> = {
@@ -59,6 +61,8 @@ const ACTION_LABELS: Record<RouteAction["type"], string> = {
   forage: "Forage / Farm",
   garden: "Plant Garden",
   cook: "Cook Recipes",
+  alt_deposit: "Alt Deposits to Transfer Chest",
+  transfer_pickup: "Pick Up from Transfer Chest",
 };
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -262,11 +266,47 @@ export function RouteTab({
     );
   }
 
+  // Group alt transfers by character for display before the main route
+  const altTransfersByChar = (gatheringRoute.altTransfers ?? []).reduce((acc, t) => {
+    if (!acc.has(t.fromCharacter)) acc.set(t.fromCharacter, []);
+    acc.get(t.fromCharacter)!.push(t);
+    return acc;
+  }, new Map<string, typeof gatheringRoute.altTransfers>());
+
   return (
     <div className="space-y-4">
       <p className="text-xs text-text-muted">
         Follow this zone-by-zone route. Non-cooking zones are listed first, ending at your cooking zone.
       </p>
+
+      {/* Alt character deposit steps — shown before the main route */}
+      {altTransfersByChar.size > 0 && (
+        <div className="bg-amber-400/5 rounded-lg border border-amber-400/20 overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-2 bg-amber-400/10 border-b border-amber-400/20">
+            <span className="text-xs text-amber-400 font-medium">Pre-Step</span>
+            <span className="text-sm font-semibold text-amber-400">Alt Character Transfers</span>
+          </div>
+          <div className="p-3 space-y-3">
+            {Array.from(altTransfersByChar.entries()).map(([charName, items]) => (
+              <div key={charName}>
+                <div className="flex items-center gap-1.5 text-xs font-medium text-amber-400 mb-1">
+                  <span>🔄</span>
+                  <span>Log in as <strong>{charName}</strong> — deposit into any Transfer Chest:</span>
+                </div>
+                <ul className="ml-5 space-y-0.5">
+                  {items.map((item, i) => (
+                    <li key={`${item.itemCode}-${i}`} className="flex items-baseline gap-2 text-xs">
+                      <span className="text-amber-400 font-medium shrink-0">×{item.quantity}</span>
+                      <span className="text-text-primary">{item.itemName}</span>
+                      <span className="text-text-muted">from {item.fromVault}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {route.map((zr, zoneIdx) => (
         <div key={zr.zone} className="bg-bg-secondary rounded-lg border border-border overflow-hidden">

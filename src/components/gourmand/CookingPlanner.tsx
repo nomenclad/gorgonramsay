@@ -279,7 +279,7 @@ export function CookingPlanner({ foods, completions, recipeByName, onClose }: Pr
 
   // ── Gathering route (based on expanded raw materials) ──
   const gatheringRoute = useMemo(() => {
-    if (!inventoryLoaded || foodList.length === 0) return { zoneStops: [], stillNeeded: [], saddlebagItems: [] };
+    if (!inventoryLoaded || foodList.length === 0) return { zoneStops: [], stillNeeded: [], saddlebagItems: [], altTransfers: [] };
 
     const vaultItems = new Map<string, { itemName: string; itemCode: number; toCollect: number }[]>();
     const saddlebagItems: { itemName: string; itemCode: number; toCollect: number }[] = [];
@@ -343,6 +343,7 @@ export function CookingPlanner({ foods, completions, recipeByName, onClose }: Pr
       zoneStops,
       stillNeeded,
       saddlebagItems: saddlebagItems.sort((a, b) => a.itemName.localeCompare(b.itemName)),
+      altTransfers: [],
     };
   }, [foodList, rawMaterials, getItemLocations, inventoryLoaded, fmtVault, cookingZone]);
 

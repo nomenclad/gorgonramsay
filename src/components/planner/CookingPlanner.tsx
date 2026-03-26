@@ -7,6 +7,7 @@ import { useState, useMemo } from "react";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useInventoryStore } from "../../stores/inventoryStore";
 import { usePlannerStore } from "../../stores/plannerStore";
+import { useAltStore } from "../../stores/altStore";
 import { getAllAreaZones } from "../../lib/vaultResolver";
 import {
   resolveIngredients,
@@ -37,9 +38,18 @@ export function CookingPlannerPage() {
   const entries = usePlannerStore((s) => s.entries);
   const gardeningZone = usePlannerStore((s) => s.gardeningZone);
   const cookingZone = usePlannerStore((s) => s.cookingZone);
+  const craftingCharId = usePlannerStore((s) => s.craftingCharId);
   const setGardeningZone = usePlannerStore((s) => s.setGardeningZone);
   const setCookingZone = usePlannerStore((s) => s.setCookingZone);
+  const setCraftingCharId = usePlannerStore((s) => s.setCraftingCharId);
   const clearAll = usePlannerStore((s) => s.clearAll);
+
+  const alts = useAltStore((s) => s.alts);
+  const activeCharId = useAltStore((s) => s.activeCharId);
+  const getAltItemLocations = useAltStore((s) => s.getAltItemLocations);
+  const hasMultipleChars = alts.size > 1;
+  // The character doing the crafting — defaults to active character
+  const effectiveCraftingCharId = craftingCharId || activeCharId || "";
 
   const recipes = useGameDataStore((s) => s.recipes);
   const items = useGameDataStore((s) => s.items);
@@ -108,12 +118,18 @@ export function CookingPlannerPage() {
     [craftingSteps]
   );
 
+  // Build alt item location resolver if there are multiple characters
+  const altItemLocFn = useMemo(() => {
+    if (!hasMultipleChars) return undefined;
+    return (typeId: number) => getAltItemLocations(typeId, effectiveCraftingCharId);
+  }, [hasMultipleChars, getAltItemLocations, effectiveCraftingCharId]);
+
   const gatheringRoute: GatheringRoute = useMemo(
     () =>
       plannedRecipes.length === 0
-        ? { zoneStops: [], stillNeeded: [], saddlebagItems: [] }
-        : buildGatheringRoute(rawMaterials, getItemLocations, fmtVault, cookingZone),
-    [plannedRecipes, rawMaterials, getItemLocations, fmtVault, cookingZone, inventoryData]
+        ? { zoneStops: [], stillNeeded: [], saddlebagItems: [], altTransfers: [] }
+        : buildGatheringRoute(rawMaterials, getItemLocations, fmtVault, cookingZone, altItemLocFn),
+    [plannedRecipes, rawMaterials, getItemLocations, fmtVault, cookingZone, inventoryData, altItemLocFn]
   );
 
   // Identify garden-growable items and split stillNeeded into garden vs forage
@@ -179,8 +195,23 @@ export function CookingPlannerPage() {
       {/* Active planner */}
       {entryCount > 0 && (
         <>
-          {/* Zone selectors */}
+          {/* Character & zone selectors */}
           <div className="flex flex-wrap gap-4">
+            {hasMultipleChars && (
+              <label className="flex items-center gap-2 text-sm">
+                <span className="text-text-secondary">Crafting Character:</span>
+                <select
+                  value={effectiveCraftingCharId}
+                  onChange={(e) => setCraftingCharId(e.target.value)}
+                  className="bg-bg-secondary border border-border rounded px-2 py-1 text-sm text-text-primary"
+                  title="Character who will do the crafting — their inventory and skills are used for planning"
+                >
+                  {Array.from(alts.values()).map((alt) => (
+                    <option key={alt.id} value={alt.id}>{alt.name} @ {alt.server}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="flex items-center gap-2 text-sm">
               <span className="text-text-secondary">Gardening Zone:</span>
               <select

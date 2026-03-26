@@ -3,9 +3,10 @@
  * refreshing the page doesn't lose state.
  *
  * - CDN game data: re-parsed from the existing cdnFiles cache
- * - Character / Inventory: restored from the userFiles table
+ * - Characters: all saved characters restored to altStore, active one synced to legacy stores
+ * - Inventory / Eaten foods: restored per-character
  */
-import { getCachedVersion, getCachedFile, getUserFile } from "./db";
+import { getCachedVersion, getCachedFile, getUserFile, listUserFileKeys } from "./db";
 import { ALL_CDN_FILES } from "./cdnLoader";
 import { parseRecipes, buildRecipeIndexes } from "./parsers/recipeParser";
 import { parseItems, buildItemIndexes } from "./parsers/itemParser";
@@ -15,8 +16,7 @@ import { parseCharacterSheet } from "./parsers/characterParser";
 import { parseInventory } from "./parsers/inventoryParser";
 import { parseEatenFoods } from "./parsers/eatenFoodsParser";
 import { useGameDataStore } from "../stores/gameDataStore";
-import { useCharacterStore } from "../stores/characterStore";
-import { useInventoryStore } from "../stores/inventoryStore";
+import { useAltStore } from "../stores/altStore";
 
 /**
  * Apply a map of CDN file contents to the game data store (no status log).
@@ -77,39 +77,85 @@ export async function hydrateFromCache(): Promise<void> {
         if (content) files[filename] = content;
       }),
     );
-    // Core files (recipes + items) are required for the app to function.
-    // Without them the UI has nothing to display, so skip hydration entirely.
     if (files["recipes.json"] && files["items.json"]) {
       applyCdnFiles(files);
     }
   }
 
-  // 2. Restore character — must come after CDN data so skill names can be resolved
-  const charJson = await getUserFile("character");
-  if (charJson) {
-    try {
-      const sheet = parseCharacterSheet(charJson);
-      useCharacterStore.getState().setCharacter(sheet);
-    } catch (e) { console.warn("Skipping corrupted character data:", e); }
-  }
+  // 2. Restore all characters (multi-character support)
+  const altStore = useAltStore.getState();
+  const charKeys = await listUserFileKeys("character:");
 
-  // 2b. Restore eaten foods (from the game's local Books directory file)
-  const eatenText = await getUserFile("eatenFoods");
-  if (eatenText) {
+  // Also check for legacy single-character key ("character" without colon)
+  const legacyChar = await getUserFile("character");
+
+  if (charKeys.length > 0) {
+    // Multi-character mode: restore each character
+    for (const key of charKeys) {
+      const id = key.slice("character:".length); // strip prefix
+      try {
+        const charJson = await getUserFile(key);
+        if (!charJson) continue;
+        const sheet = parseCharacterSheet(charJson);
+
+        // Load paired inventory
+        const invJson = await getUserFile(`inventory:${id}`);
+        let inventory: import("../types/inventory").InventoryItem[] = [];
+        let invTimestamp: string | null = null;
+        if (invJson) {
+          try {
+            const inv = parseInventory(invJson);
+            inventory = inv.Items;
+            invTimestamp = inv.Timestamp;
+          } catch (e) { console.warn(`Skipping corrupted inventory for ${id}:`, e); }
+        }
+
+        // Load paired eaten foods
+        let eatenFoods: Map<string, number> | null = null;
+        const eatenText = await getUserFile(`eatenFoods:${id}`);
+        if (eatenText) {
+          try {
+            eatenFoods = parseEatenFoods(eatenText) ?? null;
+          } catch (e) { console.warn(`Skipping corrupted eaten foods for ${id}:`, e); }
+        }
+
+        altStore.loadCharacter(sheet, inventory, invTimestamp, eatenFoods);
+      } catch (e) { console.warn(`Skipping corrupted character ${id}:`, e); }
+    }
+
+    // Restore active character from localStorage
+    const savedActive = localStorage.getItem("activeCharId");
+    const ids = altStore.getCharacterIds();
+    if (savedActive && ids.includes(savedActive)) {
+      altStore.setActiveCharacter(savedActive);
+    } else if (ids.length > 0) {
+      altStore.setActiveCharacter(ids[0]);
+    }
+  } else if (legacyChar) {
+    // Legacy single-character mode: migrate to multi-character
     try {
-      const eatenMap = parseEatenFoods(eatenText);
-      if (eatenMap) {
-        useCharacterStore.getState().setEatenFoods(eatenMap);
+      const sheet = parseCharacterSheet(legacyChar);
+      const id = altStore.loadCharacter(sheet);
+
+      // Load legacy inventory
+      const invJson = await getUserFile("inventory");
+      if (invJson) {
+        try {
+          const inv = parseInventory(invJson);
+          altStore.loadInventory(id, inv.Items, inv.Timestamp);
+        } catch (e) { console.warn("Skipping corrupted inventory:", e); }
       }
-    } catch (e) { console.warn("Skipping corrupted eaten-foods data:", e); }
-  }
 
-  // 3. Restore inventory — last because it's the least critical for initial render
-  const invJson = await getUserFile("inventory");
-  if (invJson) {
-    try {
-      const inv = parseInventory(invJson);
-      useInventoryStore.getState().setInventory(inv.Items, inv.Timestamp, inv.Character);
-    } catch (e) { console.warn("Skipping corrupted inventory data:", e); }
+      // Load legacy eaten foods
+      const eatenText = await getUserFile("eatenFoods");
+      if (eatenText) {
+        try {
+          const eatenMap = parseEatenFoods(eatenText);
+          if (eatenMap) altStore.loadEatenFoods(id, eatenMap);
+        } catch (e) { console.warn("Skipping corrupted eaten foods:", e); }
+      }
+
+      altStore.setActiveCharacter(id);
+    } catch (e) { console.warn("Skipping corrupted character data:", e); }
   }
 }
