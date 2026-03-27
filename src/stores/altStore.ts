@@ -145,16 +145,16 @@ export const useAltStore = create<AltState>((set, get) => ({
     set({ activeCharId: id });
     localStorage.setItem("activeCharId", id);
 
-    // Sync to legacy stores so all existing UI updates reactively
+    // Sync to legacy stores so all existing UI updates reactively.
+    // Always overwrite both stores — even if the alt has no inventory,
+    // we must clear the previous character's data to avoid mixing.
     useCharacterStore.getState().setCharacter(alt.character);
-    useCharacterStore.getState().setEatenFoods(alt.eatenFoods ?? new Map());
-    if (alt.inventory.length > 0) {
-      useInventoryStore.getState().setInventory(
-        alt.inventory,
-        alt.inventoryTimestamp ?? "",
-        alt.name,
-      );
-    }
+    useCharacterStore.getState().setEatenFoods(alt.eatenFoods ?? null);
+    useInventoryStore.getState().setInventory(
+      alt.inventory,
+      alt.inventoryTimestamp ?? "",
+      alt.name,
+    );
   },
 
   removeCharacter: (id) => {
