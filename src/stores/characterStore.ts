@@ -30,7 +30,7 @@ interface CharacterState {
   eatenFoods: Map<string, number> | null;
 
   setCharacter: (sheet: CharacterSheet) => void;
-  setEatenFoods: (foods: Map<string, number>) => void;
+  setEatenFoods: (foods: Map<string, number> | null) => void;
   getSkill: (name: string) => SkillState | undefined;
   getRecipeCompletion: (internalName: string) => number | undefined;
   isFirstTimeRecipe: (internalName: string) => boolean;
