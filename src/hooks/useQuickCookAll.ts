@@ -29,6 +29,7 @@ export interface QuickCookAllResult {
 export function useQuickCookAll(onAfterQueue?: () => void): QuickCookAllResult {
   const recipes = useGameDataStore((s) => s.recipes);
   const loaded = useGameDataStore((s) => s.loaded);
+  const recipeIndexes = useGameDataStore((s) => s.recipeIndexes);
   const character = useCharacterStore((s) => s.character);
   const getItemQuantity = useInventoryStore((s) => s.getItemQuantity);
   const aggregated = useInventoryStore((s) => s.aggregated);
@@ -49,9 +50,18 @@ export function useQuickCookAll(onAfterQueue?: () => void): QuickCookAllResult {
       // Must meet skill level requirement
       const skillLevel = character.Skills[r.Skill]?.Level ?? 0;
       if (skillLevel < r.SkillLevelReq) return false;
-      // Must have ingredients available (in inventory or vendor-purchasable)
+      // Must have ingredients available (in inventory or vendor-purchasable).
+      // Skip recipes whose ingredients would require gardening or cheesemaking.
       return r.Ingredients.every((ing) => {
         if (getItemQuantity(ing.ItemCode) >= ing.StackSize) return true;
+        // Reject if this ingredient is produced by a Gardening or Cheesemaking recipe
+        // (player would need to grow/craft it, which Quick Cook should not plan)
+        if (recipeIndexes) {
+          const producingRecipes = recipeIndexes.byResultItem.get(ing.ItemCode);
+          if (producingRecipes?.some((pr) => pr.Skill === "Gardening" || pr.Skill === "Cheesemaking")) {
+            return false;
+          }
+        }
         const methods = getAcquisitionMethods(ing.ItemCode, 0);
         return methods.some((m) => m.kind === "vendor");
       });
@@ -109,7 +119,7 @@ export function useQuickCookAll(onAfterQueue?: () => void): QuickCookAllResult {
     }
 
     return selected;
-  }, [loaded, character, recipes, completions, getItemQuantity, aggregated]);
+  }, [loaded, character, recipes, completions, getItemQuantity, aggregated, recipeIndexes]);
 
   const handleQuickCookAll = useCallback(() => {
     if (plan.length === 0) return;
