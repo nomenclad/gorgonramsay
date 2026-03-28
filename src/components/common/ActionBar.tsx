@@ -10,6 +10,7 @@ import { useCharacterStore } from "../../stores/characterStore";
 import { useNavStore } from "../../stores/navStore";
 import { usePlannerStore } from "../../stores/plannerStore";
 import { useQuickCook } from "../../hooks/useQuickCook";
+import { useQuickCookAll } from "../../hooks/useQuickCookAll";
 import { parseGourmandFoods } from "../../lib/parsers/gourmandParser";
 import { RecipePlanner } from "../gourmand/RecipePlanner";
 
@@ -27,6 +28,7 @@ export function ActionBar() {
   const loaded = useGameDataStore((s) => s.loaded);
 
   const { meal: quickMeal, snack: quickSnack, handleQuickCook } = useQuickCook(navigateToPlanner);
+  const { recipeCount: quickCookAllCount, handleQuickCookAll } = useQuickCookAll(navigateToPlanner);
 
   // Data needed for RecipePlanner modal
   const recipeByResultItem = useMemo(() => {
@@ -56,13 +58,25 @@ export function ActionBar() {
   return (
     <>
       <div className="flex items-stretch gap-1.5 shrink-0 h-8">
-        {/* Quick Cook */}
+        {/* Quick Cook — auto-select max recipes using all available ingredients */}
+        {quickCookAllCount > 0 && (
+          <button
+            onClick={handleQuickCookAll}
+            className="px-2.5 bg-success text-white rounded text-xs font-medium hover:bg-success/90 transition-colors flex items-center"
+            title="Auto-queue known recipes to maximize ingredient usage from storage and vendors"
+          >
+            ⚡ Quick Cook
+          </button>
+        )}
+
+        {/* Max Lvl Cook — picks best single meal + snack for Gourmand XP */}
         {(quickMeal || quickSnack) && (
           <button
             onClick={handleQuickCook}
             className="px-2.5 bg-accent text-white rounded text-xs font-medium hover:bg-accent/90 transition-colors flex items-center"
+            title="Queue the highest-level uneaten meal and snack you can cook right now"
           >
-            ⚡ Quick Cook
+            ⚡ Max Lvl Cook
           </button>
         )}
 

@@ -176,9 +176,13 @@ export function HelpModal({ onClose }: Props) {
             <h3 className="text-text-primary font-semibold mb-1">Quick Actions</h3>
             <ul className="list-disc list-inside ml-2 space-y-0.5">
               <li>
-                <span className="text-accent">Quick Cook</span> &mdash; instantly queues the
-                best Gourmand meal and snack you can cook right now with your current
-                inventory, and opens the Planner.
+                <span className="text-accent">Quick Cook</span> &mdash; auto-selects as many
+                known recipes as possible to maximize ingredient usage from your storage
+                and vendor purchases. Prioritizes first-craft and high-level recipes.
+              </li>
+              <li>
+                <span className="text-accent">Max Lvl Cook</span> &mdash; queues the single
+                highest-level uneaten meal and snack you can cook right now.
               </li>
               <li>
                 <span className="text-accent">Recipe Hunter</span> &mdash; finds recipes

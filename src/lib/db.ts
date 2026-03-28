@@ -160,3 +160,8 @@ export async function listUserFileKeys(prefix: string): Promise<string[]> {
     .map((r) => r.key)
     .filter((k) => k.startsWith(prefix));
 }
+
+/** Delete a user file by key. */
+export async function deleteUserFile(key: string): Promise<void> {
+  await db.userFiles.delete(key);
+}
