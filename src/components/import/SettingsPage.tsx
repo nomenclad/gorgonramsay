@@ -26,7 +26,7 @@ import {
   ALL_CDN_FILES,
   type DownloadProgress,
 } from "../../lib/cdnLoader";
-import { getCachedVersion, storeUserFile } from "../../lib/db";
+import { getCachedVersion, storeUserFile, deleteUserFile } from "../../lib/db";
 import {
   type ReportFile,
   pickDirectory,
@@ -845,6 +845,41 @@ export function SettingsPage() {
             </div>
           </section>
         </>
+      )}
+
+      {/* Loaded Characters — manage imported character data */}
+      {useAltStore.getState().alts.size > 0 && (
+        <section className="bg-bg-secondary rounded-lg p-4 space-y-3">
+          <h3 className="font-medium text-sm">Loaded Characters</h3>
+          <div className="space-y-2">
+            {Array.from(useAltStore.getState().alts.values()).map((alt) => (
+              <div key={alt.id} className="flex items-center justify-between bg-bg-primary rounded p-2 border border-border">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-text-primary">{alt.name} <span className="text-text-muted font-normal">@ {alt.server}</span></span>
+                  <div className="flex gap-3 text-xs text-text-muted mt-0.5">
+                    <span>{alt.inventoryTimestamp ? `Inv: ${new Date(alt.inventoryTimestamp).toLocaleDateString()}` : "No inventory"}</span>
+                    <span>{alt.eatenFoods ? `Eaten: ${alt.eatenFoods.size} foods` : "No eaten data"}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!window.confirm(`Delete all data for ${alt.name} @ ${alt.server}?`)) return;
+                    const id = alt.id;
+                    useAltStore.getState().removeCharacter(id);
+                    deleteUserFile(`character:${id}`).catch(() => {});
+                    deleteUserFile(`inventory:${id}`).catch(() => {});
+                    deleteUserFile(`eatenFoods:${id}`).catch(() => {});
+                    addStatus(`✓ Deleted ${alt.name} @ ${alt.server}`);
+                  }}
+                  className="px-2 py-1 text-xs text-error hover:bg-error/10 rounded transition-colors"
+                  title={`Delete ${alt.name} and all associated data`}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Drag-and-drop fallback */}

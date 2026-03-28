@@ -54,6 +54,7 @@ export function RecipeBrowser() {
   const [foodCategory, setFoodCategory] = useState<FoodCategory>("all");
   const [knowledgeFilter, setKnowledgeFilter] = useState<KnowledgeFilter>("all");
   const [showCraftableOnly, setShowCraftableOnly] = useState(false);
+  const [showFirstCraftOnly, setShowFirstCraftOnly] = useState(false);
   const [minLevel, setMinLevel] = useState(0);
   const [maxLevel, setMaxLevel] = useState(125);
   const [sortKey, setSortKey] = useState<SortKey>("level");
@@ -189,10 +190,6 @@ export function RecipeBrowser() {
       results = results.filter((r) => knownRecipes.has(r.InternalName));
     } else if (knowledgeFilter === "unknown") {
       results = results.filter((r) => !knownRecipes.has(r.InternalName));
-    } else if (knowledgeFilter === "firstcraft") {
-      results = results.filter(
-        (r) => (character?.RecipeCompletions[r.InternalName] ?? 0) === 0
-      );
     } else if (knowledgeFilter === "canlearn") {
       results = results.filter(
         (r) => !knownRecipes.has(r.InternalName) && (character?.Skills[r.Skill]?.Level ?? 0) >= r.SkillLevelReq
@@ -210,6 +207,12 @@ export function RecipeBrowser() {
         r.Ingredients.every(
           (ing) => getItemQuantity(ing.ItemCode) >= ing.StackSize
         )
+      );
+    }
+
+    if (showFirstCraftOnly) {
+      results = results.filter(
+        (r) => (character?.RecipeCompletions[r.InternalName] ?? 0) === 0
       );
     }
 
@@ -264,6 +267,7 @@ export function RecipeBrowser() {
     knowledgeFilter,
     knownRecipes,
     showCraftableOnly,
+    showFirstCraftOnly,
     recipeIngredientFilter,
     minLevel,
     maxLevel,
@@ -295,7 +299,6 @@ export function RecipeBrowser() {
     { key: "starred", label: "★ Queued", count: starredCount },
     { key: "known", label: "Known", count: character ? knownCount : null },
     { key: "unknown", label: "Unknown", count: character ? unknownCount : null },
-    { key: "firstcraft", label: "First Craft", count: character ? firstCraftCount : null },
     { key: "canlearn", label: "Can Learn", count: character ? canLearnCount : null },
     { key: "toolow", label: "Too Low", count: character ? tooLowCount : null },
   ];
@@ -380,6 +383,30 @@ export function RecipeBrowser() {
             />
           </span>
           Craftable Now
+        </button>
+
+        {/* First Craft toggle */}
+        <button
+          onClick={() => { setShowFirstCraftOnly((v) => !v); setPage(0); }}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+            showFirstCraftOnly
+              ? "bg-gold/15 text-gold"
+              : "bg-bg-secondary text-text-secondary hover:text-text-primary"
+          }`}
+          title="Show only recipes that have never been crafted (first-time XP bonus)"
+        >
+          <span
+            className={`relative inline-flex shrink-0 w-9 h-5 rounded-full transition-colors ${
+              showFirstCraftOnly ? "bg-gold" : "bg-border"
+            }`}
+          >
+            <span
+              className={`absolute top-[3px] left-[3px] w-[14px] h-[14px] rounded-full bg-white transition-all ${
+                showFirstCraftOnly ? "translate-x-[16px]" : "translate-x-0"
+              }`}
+            />
+          </span>
+          First Craft
         </button>
 
       </div>
