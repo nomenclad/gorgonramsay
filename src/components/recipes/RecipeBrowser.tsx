@@ -136,12 +136,6 @@ export function RecipeBrowser() {
     [visibleRecipes, knownRecipes]
   );
 
-  const firstCraftCount = useMemo(
-    () => visibleRecipes.filter(
-      (r) => (character?.RecipeCompletions[r.InternalName] ?? 0) === 0
-    ).length,
-    [visibleRecipes, character]
-  );
 
   const canLearnCount = useMemo(
     () => visibleRecipes.filter(
