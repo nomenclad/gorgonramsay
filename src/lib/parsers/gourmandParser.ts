@@ -23,6 +23,8 @@ export interface FoodItem {
   iconId?: number;
   gourmandXp: number;
   foodLevel: number;
+  /** Gourmand skill level required to eat this food (from SkillReqs.Gourmand). */
+  gourmandLevelReq: number;
   foodType: string; // "Meal", "Snack", "Instant-Snack", etc.
   effects: string[];
   /**
@@ -84,6 +86,7 @@ export function parseGourmandFoods(
       iconId: item.IconId,
       gourmandXp,
       foodLevel: level,
+      gourmandLevelReq: item.SkillReqs?.Gourmand ?? level,
       foodType: type,
       effects: item.EffectDescs ?? [],
       hasTracking: matchedRecipe !== null,

@@ -21,6 +21,7 @@ interface RawItemData {
   NumUses?: number;
   FoodDesc?: string;
   EffectDescs?: string[];
+  SkillReqs?: Record<string, number>;
 }
 
 export function parseItems(json: string): Item[] {

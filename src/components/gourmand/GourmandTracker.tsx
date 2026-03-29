@@ -302,7 +302,7 @@ export function GourmandTracker() {
     return [...results].sort((a, b) => {
       let diff = 0;
       if (sortKey === "name") diff = a.itemName.localeCompare(b.itemName);
-      else if (sortKey === "gourmandLvl") diff = (a.foodLevel ?? 0) - (b.foodLevel ?? 0);
+      else if (sortKey === "gourmandLvl") diff = (a.gourmandLevelReq ?? 0) - (b.gourmandLevelReq ?? 0);
       else if (sortKey === "xp") diff = a.gourmandXp - b.gourmandXp;
       else if (sortKey === "qty") diff = getItemQuantity(a.itemCode) - getItemQuantity(b.itemCode);
       else if (sortKey === "status") {
@@ -593,9 +593,8 @@ export function GourmandTracker() {
                       </div>
                     )}
                   </td>
-                  <td className="py-2 px-3 text-right">
-                    <div className="font-medium">{food.foodLevel}</div>
-                    <div className="text-xs text-text-muted">+{food.gourmandXp.toLocaleString()} XP</div>
+                  <td className="py-2 px-3 text-right font-medium">
+                    {food.gourmandLevelReq}
                   </td>
                   <td className="py-2 px-3 text-right">
                     {qty > 0 ? (
