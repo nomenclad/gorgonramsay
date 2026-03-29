@@ -21,4 +21,6 @@ export interface Item {
   FoodDesc?: string;
   /** Plain-text effect descriptions — present on food and consumables. Displayed to the user as buff/debuff info. */
   EffectDescs?: string[];
+  /** Skill requirements to use/eat this item (e.g. { Gourmand: 25 } means Gourmand level 25 to eat). */
+  SkillReqs?: Record<string, number>;
 }
