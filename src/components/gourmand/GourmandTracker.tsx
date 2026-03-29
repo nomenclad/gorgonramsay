@@ -215,7 +215,7 @@ export function GourmandTracker() {
     }
 
     if (filterIngredients) {
-      results = results.filter((f) => f.hasTracking && hasAllIngredients(f));
+      results = results.filter((f) => getItemQuantity(f.itemCode) > 0);
     }
 
     return results;
@@ -436,7 +436,7 @@ export function GourmandTracker() {
             {(
               [
                 { key: "uneaten", label: `Uneaten (${filteredUneatenCount})`, active: filterUneaten, set: setFilterUneaten, tip: "Show only foods you haven't eaten yet for Gourmand XP" },
-                { key: "ingr", label: "On Hand", active: filterIngredients, set: setFilterIngredients, tip: "Show only foods you have all ingredients to craft right now" },
+                { key: "ingr", label: "On Hand", active: filterIngredients, set: setFilterIngredients, tip: "Show only foods you currently have in your inventory" },
               ] as const
             ).map(({ key, label, active, set, tip }) => (
               <button
