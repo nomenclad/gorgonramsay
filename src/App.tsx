@@ -23,7 +23,6 @@ import { GourmandTracker } from "./components/gourmand/GourmandTracker";
 import { CraftingCalculator } from "./components/crafting/CraftingCalculator";
 import { SettingsPage } from "./components/import/SettingsPage";
 import { CookingPlannerPage } from "./components/planner/CookingPlanner";
-import { ChangelogPage } from "./components/changelog/ChangelogPage";
 import { useNavStore } from "./stores/navStore";
 import type { Tab } from "./components/layout/TabBar";
 
@@ -35,7 +34,6 @@ const DEFAULT_TABS: Tab[] = [
   { id: "gourmand",  label: "Gourmand" },
   { id: "planner",   label: "Planner" },
   { id: "crafting",  label: "Crafting" },
-  { id: "changelog", label: "Changelog" },
   { id: "settings",  label: "Settings" },
 ];
 
@@ -106,7 +104,6 @@ function App() {
               <div className={activeTab !== "recipes"   ? "hidden" : ""}><RecipeBrowser /></div>
               <div className={activeTab !== "gourmand"  ? "hidden" : ""}><GourmandTracker /></div>
               <div className={activeTab !== "planner"   ? "hidden" : ""}><CookingPlannerPage /></div>
-              <div className={activeTab !== "changelog" ? "hidden" : ""}><ChangelogPage /></div>
               <div className={activeTab !== "settings"  ? "hidden" : ""}><SettingsPage /></div>
             </div>
           </div>
