@@ -8,6 +8,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useInventoryStore } from "../../stores/inventoryStore";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useNavStore } from "../../stores/navStore";
+import { useAltStore } from "../../stores/altStore";
 import { ContextMenu, wikiUrl, openInBrowser } from "../common/ContextMenu";
 import { FOOD_SKILLS, matchesSelectedSkill } from "../../lib/foodSkills";
 import { getAcquisitionMethods } from "../../lib/sourceResolver";
@@ -28,6 +29,8 @@ type AcquisitionFilter = "all" | "foraged" | "crafted";
 export function InventoryBrowser() {
   const aggregated = useInventoryStore((s) => s.aggregated);
   const getVaultNames = useInventoryStore((s) => s.getVaultNames);
+  const alts = useAltStore((s) => s.alts);
+  const activeCharId = useAltStore((s) => s.activeCharId);
   const loaded = useGameDataStore((s) => s.loaded);
   const items = useGameDataStore((s) => s.items);
   const recipeIndexes = useGameDataStore((s) => s.recipeIndexes);
@@ -65,7 +68,22 @@ export function InventoryBrowser() {
     setCtxMenu({ x: e.clientX, y: e.clientY, name });
   }, []);
 
-  const { widths: colW, startResize } = useResizableColumns("inventory", [180, 100, 70, 90, 90, 220, 70]);
+  const { widths: colW, startResize } = useResizableColumns("inventory", [180, 100, 70, 90, 90, 90, 220, 70]);
+
+  // Sum of each item across all non-active alt characters, with per-character breakdown for tooltip.
+  const altQtyByTypeId = useMemo(() => {
+    const map = new Map<number, { total: number; perChar: { name: string; qty: number }[] }>();
+    for (const [id, alt] of alts) {
+      if (id === activeCharId) continue;
+      for (const agg of alt.aggregated) {
+        const entry = map.get(agg.typeId) ?? { total: 0, perChar: [] };
+        entry.total += agg.totalQuantity;
+        entry.perChar.push({ name: alt.name, qty: agg.totalQuantity });
+        map.set(agg.typeId, entry);
+      }
+    }
+    return map;
+  }, [alts, activeCharId]);
 
   const vaultKeys = useMemo(() => getVaultNames(), [getVaultNames]);
 
@@ -333,10 +351,11 @@ export function InventoryBrowser() {
               <SortableResizableTh label="Acquisition" col="acquisition" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} width={colW[1]} onStartResize={(x) => startResize(1, x)}
                 filterOptions={acquisitionOptions} filterSelected={colFilters.filters["acquisition"] ?? new Set()} onFilterChange={(s) => colFilters.setFilter("acquisition", s)} />
               <SortableResizableTh label="Qty" col="qty" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[2]} onStartResize={(x) => startResize(2, x)} />
-              <SortableResizableTh label="Unit Value" col="value" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[3]} onStartResize={(x) => startResize(3, x)} />
-              <SortableResizableTh label="Total Value" col="totalValue" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[4]} onStartResize={(x) => startResize(4, x)} />
-              <ResizableTh width={colW[5]} onStartResize={(x) => startResize(5, x)}>Where Found</ResizableTh>
-              {loaded && <SortableResizableTh label="Recipes" col="recipes" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[6]} onStartResize={(x) => startResize(6, x)} />}
+              <ResizableTh width={colW[3]} onStartResize={(x) => startResize(3, x)} right>Alt Qty</ResizableTh>
+              <SortableResizableTh label="Unit Value" col="value" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[4]} onStartResize={(x) => startResize(4, x)} />
+              <SortableResizableTh label="Total Value" col="totalValue" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[5]} onStartResize={(x) => startResize(5, x)} />
+              <ResizableTh width={colW[6]} onStartResize={(x) => startResize(6, x)}>Where Found</ResizableTh>
+              {loaded && <SortableResizableTh label="Recipes" col="recipes" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[7]} onStartResize={(x) => startResize(7, x)} />}
             </tr>
           </thead>
           <tbody>
@@ -385,6 +404,17 @@ export function InventoryBrowser() {
                     )}
                   </td>
                   <td className="py-2 px-3 text-right">{item.totalQuantity.toLocaleString()}</td>
+                  <td className="py-2 px-3 text-right text-text-secondary">
+                    {(() => {
+                      const entry = altQtyByTypeId.get(item.typeId);
+                      if (!entry || entry.total === 0) return <span className="text-text-muted">—</span>;
+                      const tip = [...entry.perChar]
+                        .sort((a, b) => b.qty - a.qty)
+                        .map((p) => `${p.name}: ${p.qty.toLocaleString()}`)
+                        .join("\n");
+                      return <span title={tip}>{entry.total.toLocaleString()}</span>;
+                    })()}
+                  </td>
                   <td className="py-2 px-3 text-right text-gold">{item.value.toLocaleString()}c</td>
                   <td className="py-2 px-3 text-right text-gold">{(item.value * item.totalQuantity).toLocaleString()}c</td>
                   <td className="py-2 px-3 text-xs text-text-secondary max-w-xs">

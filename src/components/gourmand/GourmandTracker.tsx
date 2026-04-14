@@ -8,6 +8,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useInventoryStore } from "../../stores/inventoryStore";
 import { useCharacterStore } from "../../stores/characterStore";
+import { useAltStore } from "../../stores/altStore";
 import { parseGourmandFoods, type FoodItem } from "../../lib/parsers/gourmandParser";
 import { getRecipeSourceLabels, type RecipeSourceLabel } from "../../lib/sourceResolver";
 import { ContextMenu, wikiUrl, openInBrowser } from "../common/ContextMenu";
@@ -38,6 +39,9 @@ export function GourmandTracker() {
   const recipeIndexes = useGameDataStore((s) => s.recipeIndexes);
   const character = useCharacterStore((s) => s.character);
   const eatenFoods = useCharacterStore((s) => s.eatenFoods);
+  const alts = useAltStore((s) => s.alts);
+  const activeCharId = useAltStore((s) => s.activeCharId);
+  const hasMultipleChars = alts.size > 1;
 
   const aggregated = useInventoryStore((s) => s.aggregated);
   const navigateToCraft = useNavStore((s) => s.navigateToCraft);
@@ -60,6 +64,7 @@ export function GourmandTracker() {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [recipeKnowledgeFilter, setRecipeKnowledgeFilter] = useState<RecipeKnowledgeFilter>("all");
   const [filterIngredients, setFilterIngredients] = useState(false);
+  const [filterAltCraftable, setFilterAltCraftable] = useState(false);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("gourmandLvl");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -124,6 +129,20 @@ export function GourmandTracker() {
   }, [eatenFoods, completions]);
 
   const hasEatenData = !!eatenFoods;
+
+  // Check if any alt character (not the active one) can craft this food
+  const canAltCraft = useCallback((food: FoodItem): boolean => {
+    if (!food.hasTracking || !food.recipeInternalName) return false;
+    const recipe = recipeByName.get(food.recipeInternalName);
+    if (!recipe) return false;
+    for (const [id, alt] of alts) {
+      if (id === activeCharId) continue;
+      if (!(food.recipeInternalName in alt.character.RecipeCompletions)) continue;
+      const skillLevel = alt.character.Skills[recipe.Skill]?.Level ?? 0;
+      if (skillLevel >= recipe.SkillLevelReq) return true;
+    }
+    return false;
+  }, [alts, activeCharId, recipeByName]);
 
   // Global counts for the stat cards (unaffected by any active filter)
   const uneatenCount = useMemo(
@@ -218,11 +237,15 @@ export function GourmandTracker() {
       results = results.filter((f) => getItemQuantity(f.itemCode) > 0);
     }
 
+    if (filterAltCraftable) {
+      results = results.filter((f) => !isEaten(f) && canAltCraft(f));
+    }
+
     return results;
   }, [
     foods, selectedSkill, categoryFilter, search, sourceTypeFilter,
-    recipeKnowledgeFilter, filterIngredients,
-    completions, getItemQuantity, character, recipeByName,
+    recipeKnowledgeFilter, filterIngredients, filterAltCraftable,
+    completions, getItemQuantity, character, recipeByName, isEaten, canAltCraft,
   ]);
 
   // Badge counts for the status filter buttons — reflects current skill/category/etc. filters
@@ -437,7 +460,10 @@ export function GourmandTracker() {
               [
                 { key: "uneaten", label: `Uneaten (${filteredUneatenCount})`, active: filterUneaten, set: setFilterUneaten, tip: "Show only foods you haven't eaten yet for Gourmand XP" },
                 { key: "ingr", label: "On Hand", active: filterIngredients, set: setFilterIngredients, tip: "Show only foods you currently have in your inventory" },
-              ] as const
+                ...(hasMultipleChars ? [
+                  { key: "altcraft", label: "Alt Craftable", active: filterAltCraftable, set: setFilterAltCraftable, tip: "Show uneaten foods that an alt character knows how to craft" },
+                ] : []),
+              ] as { key: string; label: string; active: boolean; set: (fn: (v: boolean) => boolean) => void; tip: string }[]
             ).map(({ key, label, active, set, tip }) => (
               <button
                 key={key}
