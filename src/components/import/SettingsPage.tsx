@@ -38,6 +38,7 @@ import {
   readFileContent,
 } from "../../lib/fileAccess";
 import { useWebFolderWatch } from "../../hooks/useWebFolderWatch";
+import { TagsSettingsSection } from "./TagsSettingsSection";
 
 const THEMES = [
   { id: "default", label: "Night (Default)" },
@@ -927,6 +928,9 @@ export function SettingsPage() {
           </div>
         </section>
       )}
+
+      {/* Custom tags */}
+      <TagsSettingsSection />
 
       {/* Theme */}
       <section className="bg-bg-secondary rounded-lg p-4">
