@@ -1,13 +1,17 @@
 /**
- * Historical update log. A curated, human-authored summary of the app's
- * feature evolution — derived from the git history but grouped into
- * user-facing release notes rather than raw commit messages.
+ * Historical update log — rendered as a portal modal invoked from the
+ * header's "Changelog" button (next to Help). A curated, human-authored
+ * summary of the app's feature evolution derived from the git history
+ * but grouped into user-facing release notes rather than raw commits.
  *
  * How to add new entries:
- *   Append to `CHANGELOG` below in reverse-chronological order (newest first).
- *   Each entry gets a date, optional version tag, a headline, and a list of
- *   bullet items grouped by type ("added" / "changed" / "fixed").
+ *   Append to `CHANGELOG` below in reverse-chronological order (newest
+ *   first). Each entry gets a date, optional version tag, a headline,
+ *   and a list of bullet items grouped by type ("added" / "changed" /
+ *   "fixed").
  */
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 type EntryKind = "added" | "changed" | "fixed";
 
@@ -35,7 +39,7 @@ const CHANGELOG: ChangelogEntry[] = [
       { kind: "added", text: "Create your own custom tags and apply them to any ingredient or recipe from the new Tags column or detail modal." },
       { kind: "added", text: "Filter the Ingredients and Recipes tabs by tag using the new tag-chip toolbar." },
       { kind: "added", text: "Export and import tag definitions + assignments as JSON from Settings, so your tags can be restored after a browser cache wipe." },
-      { kind: "added", text: "Added this Changelog tab so new features are easy to discover." },
+      { kind: "added", text: "Added this Changelog button (top-right, beside Help) so new features are easy to discover." },
       { kind: "added", text: "Alt Qty column on the Ingredients tab — shows totals held by inactive alts with a per-character tooltip." },
     ],
   },
@@ -126,55 +130,90 @@ function formatDate(iso: string): string {
   return dt.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 }
 
-export function ChangelogPage() {
-  return (
-    <div className="space-y-6 max-w-3xl">
-      <header>
-        <h2 className="text-xl font-semibold">Update Log</h2>
-        <p className="text-sm text-text-muted mt-1">
-          A running history of new features, improvements, and fixes. Newest changes appear at the top.
-        </p>
-      </header>
+interface Props {
+  onClose: () => void;
+}
 
-      <ol className="relative border-l border-border/60 ml-3 space-y-6">
-        {CHANGELOG.map((entry) => (
-          <li key={entry.date + entry.title} className="ml-5">
-            <span className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full bg-accent border-2 border-bg-primary" />
-            <div className="flex flex-wrap items-baseline gap-2">
-              <time className="text-xs text-text-muted font-mono">{formatDate(entry.date)}</time>
-              {entry.version && (
-                <span className="text-xs bg-accent/10 text-accent border border-accent/30 rounded px-1.5 py-0.5 font-medium">
-                  {entry.version}
-                </span>
-              )}
-            </div>
-            <h3 className="text-base font-semibold mt-0.5">{entry.title}</h3>
-            <ul className="mt-2 space-y-1.5">
-              {entry.items.map((item, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm">
-                  <span className={`shrink-0 text-xs font-semibold uppercase tracking-wide border rounded px-1.5 py-0.5 mt-0.5 ${KIND_STYLE[item.kind].classes}`}>
-                    {KIND_STYLE[item.kind].label}
-                  </span>
-                  <span className="text-text-secondary">{item.text}</span>
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ol>
+export function ChangelogModal({ onClose }: Props) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
-      <p className="text-xs text-text-muted pt-4 border-t border-border/40">
-        Want the full commit-level history? See the
-        {" "}
-        <a
-          href="https://github.com/nomenclad/gorgonramsay/commits"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-accent hover:underline"
-        >
-          repository on GitHub
-        </a>.
-      </p>
+  const modal = (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      onClick={onClose}
+    >
+      <div
+        className="bg-bg-primary border border-border rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <div>
+            <h2 className="text-base font-bold text-text-primary">Update Log</h2>
+            <p className="text-xs text-text-muted mt-0.5">
+              A running history of new features, improvements, and fixes.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-text-muted hover:text-text-primary text-lg leading-none px-1"
+            aria-label="Close changelog"
+          >
+            &times;
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto px-5 py-4">
+          <ol className="relative border-l border-border/60 ml-3 space-y-6">
+            {CHANGELOG.map((entry) => (
+              <li key={entry.date + entry.title} className="ml-5">
+                <span className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full bg-accent border-2 border-bg-primary" />
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <time className="text-xs text-text-muted font-mono">{formatDate(entry.date)}</time>
+                  {entry.version && (
+                    <span className="text-xs bg-accent/10 text-accent border border-accent/30 rounded px-1.5 py-0.5 font-medium">
+                      {entry.version}
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-sm font-semibold mt-0.5 text-text-primary">{entry.title}</h3>
+                <ul className="mt-2 space-y-1.5">
+                  {entry.items.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      <span className={`shrink-0 text-xs font-semibold uppercase tracking-wide border rounded px-1.5 py-0.5 mt-0.5 ${KIND_STYLE[item.kind].classes}`}>
+                        {KIND_STYLE[item.kind].label}
+                      </span>
+                      <span className="text-text-secondary">{item.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ol>
+
+          <p className="text-xs text-text-muted pt-4 mt-4 border-t border-border/40">
+            Want the full commit-level history? See the
+            {" "}
+            <a
+              href="https://github.com/nomenclad/gorgonramsay/commits"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline"
+            >
+              repository on GitHub
+            </a>.
+          </p>
+        </div>
+      </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }

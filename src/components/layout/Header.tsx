@@ -12,12 +12,14 @@ import { useInventoryStore } from "../../stores/inventoryStore";
 import { useGameDataStore } from "../../stores/gameDataStore";
 import { useAltStore } from "../../stores/altStore";
 import { HelpModal } from "./HelpModal";
+import { ChangelogModal } from "../changelog/ChangelogModal";
 
 export function Header() {
   const character = useCharacterStore((s) => s.character);
   const inventoryTimestamp = useInventoryStore((s) => s.importTimestamp);
   const dataLoaded = useGameDataStore((s) => s.loaded);
   const [showHelp, setShowHelp] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
 
   const alts = useAltStore((s) => s.alts);
   const activeCharId = useAltStore((s) => s.activeCharId);
@@ -77,6 +79,14 @@ export function Header() {
           </span>
 
           <button
+            onClick={() => setShowChangelog(true)}
+            className="px-2 py-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-primary transition-colors"
+            title="What's New — recent updates and feature history"
+          >
+            Changelog
+          </button>
+
+          <button
             onClick={() => setShowHelp(true)}
             className="px-2 py-0.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-primary transition-colors"
             title="Help"
@@ -87,6 +97,7 @@ export function Header() {
       </div>
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
     </header>
   );
 }
