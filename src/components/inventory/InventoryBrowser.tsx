@@ -20,6 +20,9 @@ import { useResizableColumns } from "../../hooks/useResizableColumns";
 import { useColumnFilters } from "../../hooks/useColumnFilters";
 import { ResizableTh, SortableResizableTh } from "../common/ResizableTh";
 import { Pagination } from "../common/Pagination";
+import { TagEditor } from "../common/TagEditor";
+import { TagFilter } from "../common/TagFilter";
+import { useTagsStore } from "../../stores/tagsStore";
 
 type SortKey = "name" | "acquisition" | "qty" | "value" | "totalValue" | "recipes";
 type SortDir = "asc" | "desc";
@@ -39,6 +42,10 @@ export function InventoryBrowser() {
   const selectedSkill = useNavStore((s) => s.selectedSkill);
   const pendingIngredientSearch = useNavStore((s) => s.pendingIngredientSearch);
   const clearPendingIngredientSearch = useNavStore((s) => s.clearPendingIngredientSearch);
+  const selectedIngredientTags = useNavStore((s) => s.selectedIngredientTags);
+  const toggleIngredientTagFilter = useNavStore((s) => s.toggleIngredientTagFilter);
+  const clearIngredientTagFilters = useNavStore((s) => s.clearIngredientTagFilters);
+  const itemTagMap = useTagsStore((s) => s.itemTags);
 
   const monsterDrops = useMonsterDrops();
   const filterRecipesByIngredient = useNavStore((s) => s.filterRecipesByIngredient);
@@ -68,7 +75,7 @@ export function InventoryBrowser() {
     setCtxMenu({ x: e.clientX, y: e.clientY, name });
   }, []);
 
-  const { widths: colW, startResize } = useResizableColumns("inventory", [180, 100, 70, 90, 90, 90, 220, 70]);
+  const { widths: colW, startResize } = useResizableColumns("inventory-v2", [180, 100, 70, 90, 90, 90, 220, 70, 160]);
 
   // Sum of each item across all non-active alt characters, with per-character breakdown for tooltip.
   const altQtyByTypeId = useMemo(() => {
@@ -221,6 +228,16 @@ export function InventoryBrowser() {
       results = results.filter((item) => colFilters.passesFilter("acquisition", getAcquisition(item.typeId)));
     }
 
+    // Custom tag filter — "any-of" semantics
+    if (selectedIngredientTags.size > 0) {
+      results = results.filter((item) => {
+        const tags = itemTagMap.get(item.typeId);
+        if (!tags) return false;
+        for (const t of tags) if (selectedIngredientTags.has(t)) return true;
+        return false;
+      });
+    }
+
     return [...results].sort((a, b) => {
       let diff = 0;
       if (sortKey === "name") diff = a.name.localeCompare(b.name);
@@ -239,7 +256,7 @@ export function InventoryBrowser() {
       }
       return sortDir === "asc" ? diff : -diff;
     });
-  }, [allFoodItems, stockFilter, acquisitionFilter, search, vaultFilter, sortKey, sortDir, recipeIndexes, getAcquisition, colFilters]);
+  }, [allFoodItems, stockFilter, acquisitionFilter, search, vaultFilter, sortKey, sortDir, recipeIndexes, getAcquisition, colFilters, selectedIngredientTags, itemTagMap]);
 
   if (!loaded) {
     return (
@@ -335,6 +352,13 @@ export function InventoryBrowser() {
         )}
       </div>
 
+      <TagFilter
+        selected={selectedIngredientTags}
+        onToggle={(t) => { toggleIngredientTagFilter(t); setPage(0); }}
+        onClear={() => { clearIngredientTagFilters(); setPage(0); }}
+        label="Filter by tag"
+      />
+
       <div className="text-xs text-text-muted">
         {filtered.length.toLocaleString()} items
         {search && ` matching "${search}"`}
@@ -356,6 +380,7 @@ export function InventoryBrowser() {
               <SortableResizableTh label="Total Value" col="totalValue" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[5]} onStartResize={(x) => startResize(5, x)} />
               <ResizableTh width={colW[6]} onStartResize={(x) => startResize(6, x)}>Where Found</ResizableTh>
               {loaded && <SortableResizableTh label="Recipes" col="recipes" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[7]} onStartResize={(x) => startResize(7, x)} />}
+              <ResizableTh width={colW[8]} onStartResize={(x) => startResize(8, x)}>Tags</ResizableTh>
             </tr>
           </thead>
           <tbody>
@@ -536,6 +561,9 @@ export function InventoryBrowser() {
                       )}
                     </td>
                   )}
+                  <td className="py-2 px-3" onClick={(e) => e.stopPropagation()}>
+                    <TagEditor resource={{ kind: "item", typeId: item.typeId }} emptyLabel="—" />
+                  </td>
                 </tr>
               );
             })}

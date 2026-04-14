@@ -59,6 +59,21 @@ interface NavState {
   /** Whether the skill sidebar is open. Persists to localStorage. */
   skillSidebarOpen: boolean;
   toggleSkillSidebar: () => void;
+
+  /**
+   * Custom-tag filters. When non-empty, browsers only show items/recipes
+   * that have at least one of the selected tags ("any-of" semantics).
+   * These are Sets so components can toggle membership with constant cost.
+   */
+  selectedIngredientTags: Set<string>;
+  setSelectedIngredientTags: (tags: Set<string>) => void;
+  toggleIngredientTagFilter: (tag: string) => void;
+  clearIngredientTagFilters: () => void;
+
+  selectedRecipeTags: Set<string>;
+  setSelectedRecipeTags: (tags: Set<string>) => void;
+  toggleRecipeTagFilter: (tag: string) => void;
+  clearRecipeTagFilters: () => void;
 }
 
 export const useNavStore = create<NavState>((set) => ({
@@ -97,4 +112,26 @@ export const useNavStore = create<NavState>((set) => ({
       localStorage.setItem("skillSidebarOpen", String(next));
       return { skillSidebarOpen: next };
     }),
+
+  selectedIngredientTags: new Set<string>(),
+  setSelectedIngredientTags: (tags) => set({ selectedIngredientTags: new Set(tags) }),
+  toggleIngredientTagFilter: (tag) =>
+    set((state) => {
+      const next = new Set(state.selectedIngredientTags);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return { selectedIngredientTags: next };
+    }),
+  clearIngredientTagFilters: () => set({ selectedIngredientTags: new Set() }),
+
+  selectedRecipeTags: new Set<string>(),
+  setSelectedRecipeTags: (tags) => set({ selectedRecipeTags: new Set(tags) }),
+  toggleRecipeTagFilter: (tag) =>
+    set((state) => {
+      const next = new Set(state.selectedRecipeTags);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return { selectedRecipeTags: next };
+    }),
+  clearRecipeTagFilters: () => set({ selectedRecipeTags: new Set() }),
 }));

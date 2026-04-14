@@ -20,6 +20,9 @@ import { useColumnFilters } from "../../hooks/useColumnFilters";
 import { ResizableTh, SortableResizableTh } from "../common/ResizableTh";
 import { Pagination } from "../common/Pagination";
 import { DEFAULT_PAGE_SIZE } from "../../lib/config";
+import { TagEditor } from "../common/TagEditor";
+import { TagFilter } from "../common/TagFilter";
+import { useTagsStore } from "../../stores/tagsStore";
 
 // Knowledge filter categories:
 // "all" = no filter; "known" = recipe InternalName in completions; "unknown" = not known;
@@ -49,6 +52,10 @@ export function RecipeBrowser() {
   const clearRecipeIngredientFilter = useNavStore((s) => s.clearRecipeIngredientFilter);
   const pendingRecipeNameSearch = useNavStore((s) => s.pendingRecipeNameSearch);
   const clearRecipeNameSearch = useNavStore((s) => s.clearRecipeNameSearch);
+  const selectedRecipeTags = useNavStore((s) => s.selectedRecipeTags);
+  const toggleRecipeTagFilter = useNavStore((s) => s.toggleRecipeTagFilter);
+  const clearRecipeTagFilters = useNavStore((s) => s.clearRecipeTagFilters);
+  const recipeTagMap = useTagsStore((s) => s.recipeTags);
 
   const [search, setSearch] = useState("");
   const [foodCategory, setFoodCategory] = useState<FoodCategory>("all");
@@ -60,7 +67,7 @@ export function RecipeBrowser() {
   const [sortKey, setSortKey] = useState<SortKey>("level");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(0);
-  const { widths: colW, startResize } = useResizableColumns("recipes-v4", [40, 55, 220, 70, 130, 70, 80, 80, 90, 160, 220]);
+  const { widths: colW, startResize } = useResizableColumns("recipes-v5", [40, 55, 220, 70, 130, 70, 80, 80, 90, 160, 220, 160]);
   const colFilters = useColumnFilters();
   const navigateToCraft = useNavStore((s) => s.navigateToCraft);
   const navigateToIngredient = useNavStore((s) => s.navigateToIngredient);
@@ -226,6 +233,16 @@ export function RecipeBrowser() {
       results = results.filter((r) => colFilters.passesFilter("skill", formatSkillName(r.Skill)));
     }
 
+    // Custom recipe-tag filter — "any-of" semantics
+    if (selectedRecipeTags.size > 0) {
+      results = results.filter((r) => {
+        const tags = recipeTagMap.get(r.id);
+        if (!tags) return false;
+        for (const t of tags) if (selectedRecipeTags.has(t)) return true;
+        return false;
+      });
+    }
+
     return [...results].sort((a, b) => {
       let diff = 0;
       if (sortKey === "name") diff = a.Name.localeCompare(b.Name);
@@ -271,6 +288,8 @@ export function RecipeBrowser() {
     getItemQuantity,
     plannerEntries,
     colFilters,
+    selectedRecipeTags,
+    recipeTagMap,
   ]);
 
   if (!loaded) {
@@ -437,6 +456,13 @@ export function RecipeBrowser() {
         <span className="text-xs text-text-muted">{filtered.length.toLocaleString()} shown</span>
       </div>
 
+      <TagFilter
+        selected={selectedRecipeTags}
+        onToggle={(t) => { toggleRecipeTagFilter(t); setPage(0); }}
+        onClear={() => { clearRecipeTagFilters(); setPage(0); }}
+        label="Filter by tag"
+      />
+
       {/* Ingredient filter banner */}
       {recipeIngredientFilter && (
         <div className="flex items-center gap-2 bg-accent/10 border border-accent/30 rounded-lg px-3 py-2 text-sm">
@@ -457,7 +483,7 @@ export function RecipeBrowser() {
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="text-sm" style={{ tableLayout: "fixed", width: colW.slice(0, character ? 11 : 10).reduce((a, b) => a + b, 0) }}>
+        <table className="text-sm" style={{ tableLayout: "fixed", width: colW.slice(0, character ? 12 : 11).reduce((a, b) => a + b, 0) }}>
           <thead>
             <tr className="border-b border-border text-left text-text-secondary text-xs">
               <ResizableTh width={colW[0]} onStartResize={(x) => startResize(0, x)}>Craft</ResizableTh>
@@ -472,6 +498,7 @@ export function RecipeBrowser() {
               <SortableResizableTh label="Dropoff Lvl" col="dropoff" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} right width={colW[8]} onStartResize={(x) => startResize(8, x)} />
               <ResizableTh width={colW[9]} onStartResize={(x) => startResize(9, x)}>Recipe Source</ResizableTh>
               <ResizableTh width={colW[10]} onStartResize={(x) => startResize(10, x)}>Ingredients</ResizableTh>
+              <ResizableTh width={colW[11]} onStartResize={(x) => startResize(11, x)}>Tags</ResizableTh>
             </tr>
           </thead>
           <tbody>
@@ -615,6 +642,9 @@ export function RecipeBrowser() {
                         </span>
                       );
                     })}
+                  </td>
+                  <td className="py-2 px-3" onClick={(e) => e.stopPropagation()}>
+                    <TagEditor resource={{ kind: "recipe", recipeId: recipe.id }} emptyLabel="—" />
                   </td>
                 </tr>
               );

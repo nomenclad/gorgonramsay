@@ -45,6 +45,7 @@ export class PgDatabase extends Dexie {
   metadata!: Table<CacheMetadata>;
   fsHandles!: Table<{ key: string; handle: FileSystemDirectoryHandle }>;
   userFiles!: Table<{ key: string; content: string }>;
+  userTags!: Table<{ key: string; content: string }>;
 
   constructor() {
     super("pgefficiency");
@@ -65,6 +66,14 @@ export class PgDatabase extends Dexie {
       metadata: "key",
       fsHandles: "key",
       userFiles: "key",
+    });
+    // Version 5: persist user-defined tags (tag definitions + item/recipe tag assignments)
+    this.version(5).stores({
+      cdnFiles: "key, version, filename",
+      metadata: "key",
+      fsHandles: "key",
+      userFiles: "key",
+      userTags: "key",
     });
   }
 }
@@ -164,4 +173,20 @@ export async function listUserFileKeys(prefix: string): Promise<string[]> {
 /** Delete a user file by key. */
 export async function deleteUserFile(key: string): Promise<void> {
   await db.userFiles.delete(key);
+}
+
+/** Store the serialized user-tags blob (single row keyed by "tags"). */
+export async function storeUserTags(content: string): Promise<void> {
+  await db.userTags.put({ key: "tags", content });
+}
+
+/** Retrieve the serialized user-tags blob, or null if not set. */
+export async function getUserTags(): Promise<string | null> {
+  const row = await db.userTags.get("tags");
+  return row?.content ?? null;
+}
+
+/** Wipe the user-tags blob. */
+export async function clearUserTags(): Promise<void> {
+  await db.userTags.delete("tags");
 }

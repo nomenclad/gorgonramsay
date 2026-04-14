@@ -17,6 +17,7 @@ import { parseInventory } from "./parsers/inventoryParser";
 import { parseEatenFoods } from "./parsers/eatenFoodsParser";
 import { useGameDataStore } from "../stores/gameDataStore";
 import { useAltStore } from "../stores/altStore";
+import { useTagsStore } from "../stores/tagsStore";
 
 /**
  * Apply a map of CDN file contents to the game data store (no status log).
@@ -65,6 +66,10 @@ function applyCdnFiles(files: Record<string, string>) {
  * Safe to call on every mount — silently skips anything that's missing.
  */
 export async function hydrateFromCache(): Promise<void> {
+  // 0. Restore user-authored tag definitions and assignments. Independent of
+  //    CDN/character data, so can be kicked off in parallel.
+  const tagsPromise = useTagsStore.getState().hydrate();
+
   // 1. Restore CDN game data first — recipes/items must be available before
   //    character or inventory parsing, since those stores may reference item codes.
   const version = await getCachedVersion();
@@ -158,4 +163,8 @@ export async function hydrateFromCache(): Promise<void> {
       altStore.setActiveCharacter(id);
     } catch (e) { console.warn("Skipping corrupted character data:", e); }
   }
+
+  // Ensure the tags hydrate settled before we return so UI starts with
+  // the user's tags visible.
+  await tagsPromise;
 }

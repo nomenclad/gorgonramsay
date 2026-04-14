@@ -12,6 +12,7 @@ import { getAcquisitionMethods } from "../../lib/sourceResolver";
 import { openInBrowser, wikiUrl } from "../common/ContextMenu";
 import type { AggregatedItem } from "../../types";
 import type { DropEntry } from "../../hooks/useMonsterDrops";
+import { TagEditor } from "../common/TagEditor";
 
 interface Props {
   item: AggregatedItem;
@@ -129,6 +130,14 @@ export function IngredientDetailModal({ item, wikiDrops, onClose }: Props) {
 
         {/* ── Body ───────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+          {/* Custom tags */}
+          <section>
+            <SectionTitle>Tags</SectionTitle>
+            <div className="mt-2">
+              <TagEditor resource={{ kind: "item", typeId: item.typeId }} size="sm" emptyLabel="No tags yet — apply or create one." />
+            </div>
+          </section>
 
           {/* Inventory breakdown */}
           {item.locations.length > 0 && (
