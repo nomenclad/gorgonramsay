@@ -32,6 +32,7 @@ export const FOOD_SKILLS = new Set([
   "Mycology",
   "SushiPreparation",
   "IceConjuration",
+  "Milling",
 ]);
 
 /** Split a CamelCase skill ID into a human-readable label, e.g. "SushiPreparation" → "Sushi Preparation" */
@@ -52,6 +53,7 @@ export const CRAFT_SKILLS = new Set([
   "Mycology",
   "SushiPreparation",
   "IceConjuration",
+  "Milling",
 ]);
 
 /** Skills that should be merged under "Fishing" in the sidebar */
