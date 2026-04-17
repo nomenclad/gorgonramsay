@@ -18,6 +18,7 @@ import { parseEatenFoods } from "./parsers/eatenFoodsParser";
 import { useGameDataStore } from "../stores/gameDataStore";
 import { useAltStore } from "../stores/altStore";
 import { useTagsStore } from "../stores/tagsStore";
+import { injectMillingRecipes } from "./millingRecipes";
 
 /**
  * Apply a map of CDN file contents to the game data store (no status log).
@@ -59,6 +60,10 @@ function applyCdnFiles(files: Record<string, string>) {
   if (files["areas.json"]) {
     store.setAreas(files["areas.json"]);
   }
+
+  // Inject wiki-sourced Milling recipes (not present in CDN data).
+  // Must run after both recipes and items are loaded so item codes resolve.
+  injectMillingRecipes();
 }
 
 /**

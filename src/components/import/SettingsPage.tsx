@@ -39,6 +39,7 @@ import {
 } from "../../lib/fileAccess";
 import { useWebFolderWatch } from "../../hooks/useWebFolderWatch";
 import { TagsSettingsSection } from "./TagsSettingsSection";
+import { injectMillingRecipes } from "../../lib/millingRecipes";
 
 const THEMES = [
   { id: "default", label: "Night (Default)" },
@@ -320,6 +321,7 @@ export function SettingsPage() {
         setAreas(files["areas.json"]);
         addStatus(`✓ Area names loaded`);
       }
+      injectMillingRecipes();
     },
     [setRecipes, setItems, setXpTables, setSources, setRecipeSources, setNpcNames, setItemUsesJson, setStorageVaults, setAreas, addStatus]
   );
@@ -453,6 +455,7 @@ export function SettingsPage() {
           addStatus(`? Unrecognized file: ${file.name}`);
         }
       }
+      injectMillingRecipes();
     },
     [addStatus, setRecipes, setItems, setXpTables, setSources, setRecipeSources, setNpcNames, setItemUsesJson, importCharacter, importInventory, importEatenFoods]
   );
