@@ -23,18 +23,20 @@ import { GourmandTracker } from "./components/gourmand/GourmandTracker";
 import { CraftingCalculator } from "./components/crafting/CraftingCalculator";
 import { SettingsPage } from "./components/import/SettingsPage";
 import { CookingPlannerPage } from "./components/planner/CookingPlanner";
+import { FullInventoryPage } from "./components/inventory/FullInventoryPage";
 import { useNavStore } from "./stores/navStore";
 import type { Tab } from "./components/layout/TabBar";
 
 const fullHeightTabs = new Set(["crafting"]);
 
 const DEFAULT_TABS: Tab[] = [
-  { id: "inventory", label: "Ingredients" },
-  { id: "recipes",   label: "Recipes" },
-  { id: "gourmand",  label: "Gourmand" },
-  { id: "planner",   label: "Planner" },
-  { id: "crafting",  label: "Crafting" },
-  { id: "settings",  label: "Settings" },
+  { id: "inventory",  label: "Ingredients" },
+  { id: "recipes",    label: "Recipes" },
+  { id: "gourmand",   label: "Gourmand" },
+  { id: "planner",    label: "Planner" },
+  { id: "crafting",   label: "Crafting" },
+  { id: "fullinv",    label: "Inventory" },
+  { id: "settings",   label: "Settings" },
 ];
 
 function loadTabOrder(): Tab[] {
@@ -104,6 +106,7 @@ function App() {
               <div className={activeTab !== "recipes"   ? "hidden" : ""}><RecipeBrowser /></div>
               <div className={activeTab !== "gourmand"  ? "hidden" : ""}><GourmandTracker /></div>
               <div className={activeTab !== "planner"   ? "hidden" : ""}><CookingPlannerPage /></div>
+              <div className={activeTab !== "fullinv"   ? "hidden" : ""}><FullInventoryPage /></div>
               <div className={activeTab !== "settings"  ? "hidden" : ""}><SettingsPage /></div>
             </div>
           </div>
