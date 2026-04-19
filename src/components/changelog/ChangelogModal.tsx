@@ -33,6 +33,15 @@ interface ChangelogEntry {
  */
 const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-04-15",
+    title: "Milling skill, and tag popover polish",
+    items: [
+      { kind: "added", text: "Milling skill is now supported — the 7 wiki-sourced milling recipes (Barley, Flower Seeds, Tundra Rye, Almonds, Oat Groats, Corn, Orcish Wheat) are side-loaded into the game data so their ingredients and flour outputs show on the Ingredients and Recipes tabs. 'Milling' appears as a filterable skill in the sidebar." },
+      { kind: "added", text: "The planner auto-resolves Milling as an intermediate crafting step, so queuing a recipe that needs flour can now pull in the milling operation." },
+      { kind: "fixed", text: "Tag popover (the '+ Tag' button on Ingredients and Recipes rows) no longer gets clipped by the table or scroll container — it's portaled to the page, flips above the button when space below is tight, and stays fully within the viewport without scrolling." },
+    ],
+  },
+  {
     date: "2026-04-14",
     title: "Custom tags, tag import/export, and this changelog",
     items: [
