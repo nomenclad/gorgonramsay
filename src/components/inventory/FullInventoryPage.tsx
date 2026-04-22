@@ -17,6 +17,9 @@ import { ContextMenu, wikiUrl, openInBrowser } from "../common/ContextMenu";
 import { Pagination } from "../common/Pagination";
 import { useResizableColumns } from "../../hooks/useResizableColumns";
 import { DEFAULT_PAGE_SIZE } from "../../lib/config";
+import { TagEditor } from "../common/TagEditor";
+import { TagFilter } from "../common/TagFilter";
+import { useTagsStore } from "../../stores/tagsStore";
 import type { AggregatedItem } from "../../types";
 
 type SortKey = "name" | "qty" | "value" | "totalValue" | "vaults";
@@ -31,18 +34,21 @@ export function FullInventoryPage() {
   const alts = useAltStore((s) => s.alts);
   const activeCharId = useAltStore((s) => s.activeCharId);
 
+  const itemTagMap = useTagsStore((s) => s.itemTags);
+
   const [view, setView] = useState<ViewMode>("inventory");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(0);
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; name: string } | null>(null);
   const handleContextMenu = useCallback((e: React.MouseEvent, name: string) => {
     e.preventDefault();
     setCtxMenu({ x: e.clientX, y: e.clientY, name });
   }, []);
 
-  const { widths: colW } = useResizableColumns("full-inv", [200, 70, 90, 90, 90, 250]);
+  const { widths: colW } = useResizableColumns("full-inv-v2", [200, 70, 90, 90, 90, 220, 160]);
 
   const altQtyByTypeId = useMemo(() => {
     const map = new Map<number, { total: number; perChar: { name: string; qty: number }[] }>();
@@ -70,6 +76,14 @@ export function FullInventoryPage() {
       const term = search.toLowerCase();
       results = results.filter((item) => item.name.toLowerCase().includes(term));
     }
+    if (selectedTags.size > 0) {
+      results = results.filter((item) => {
+        const tags = itemTagMap.get(item.typeId);
+        if (!tags) return false;
+        for (const t of tags) if (selectedTags.has(t)) return true;
+        return false;
+      });
+    }
     return results.sort((a, b) => {
       let diff = 0;
       if (sortKey === "name") diff = a.name.localeCompare(b.name);
@@ -79,7 +93,7 @@ export function FullInventoryPage() {
       else if (sortKey === "vaults") diff = a.locations.length - b.locations.length;
       return sortDir === "asc" ? diff : -diff;
     });
-  }, [aggregated, search, sortKey, sortDir]);
+  }, [aggregated, search, sortKey, sortDir, selectedTags, itemTagMap]);
 
   if (aggregated.length === 0) {
     return (
@@ -142,6 +156,9 @@ export function FullInventoryPage() {
           getItemByCode={getItemByCode}
           fmtVault={fmtVault}
           handleContextMenu={handleContextMenu}
+          selectedTags={selectedTags}
+          onToggleTag={(t) => { setSelectedTags((prev) => { const next = new Set(prev); if (next.has(t)) next.delete(t); else next.add(t); return next; }); setPage(0); }}
+          onClearTags={() => { setSelectedTags(new Set()); setPage(0); }}
         />
       ) : (
         <ConsolidateView
@@ -185,11 +202,15 @@ interface InventoryViewProps {
   getItemByCode: (code: number) => import("../../types/item").Item | undefined;
   fmtVault: (key: string) => string;
   handleContextMenu: (e: React.MouseEvent, name: string) => void;
+  selectedTags: Set<string>;
+  onToggleTag: (tag: string) => void;
+  onClearTags: () => void;
 }
 
 function InventoryView({
   items, search, setSearch, sortKey, sortDir, toggleSort,
   page, setPage, colW, altQtyByTypeId, fmtVault, handleContextMenu,
+  selectedTags, onToggleTag, onClearTags,
 }: InventoryViewProps) {
   const sortArrow = (key: SortKey) =>
     sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
@@ -209,6 +230,13 @@ function InventoryView({
         </span>
       </div>
 
+      <TagFilter
+        selected={selectedTags}
+        onToggle={onToggleTag}
+        onClear={onClearTags}
+        label="Filter by tag"
+      />
+
       <Pagination page={page} totalItems={items.length} pageSize={DEFAULT_PAGE_SIZE} onPageChange={setPage} />
 
       <div className="overflow-x-auto">
@@ -221,6 +249,7 @@ function InventoryView({
               <th style={{ width: colW[3] }} className="py-2 px-3 text-right cursor-pointer select-none" onClick={() => toggleSort("value")}>Unit Value{sortArrow("value")}</th>
               <th style={{ width: colW[4] }} className="py-2 px-3 text-right cursor-pointer select-none" onClick={() => toggleSort("totalValue")}>Total Value{sortArrow("totalValue")}</th>
               <th style={{ width: colW[5] }} className="py-2 px-3 cursor-pointer select-none" onClick={() => toggleSort("vaults")}>Storage{sortArrow("vaults")}</th>
+              <th style={{ width: colW[6] }} className="py-2 px-3">Tags</th>
             </tr>
           </thead>
           <tbody>
@@ -247,6 +276,9 @@ function InventoryView({
                   <td className="py-2 px-3 text-right text-gold">{(item.value * item.totalQuantity).toLocaleString()}c</td>
                   <td className="py-2 px-3 text-xs text-text-secondary truncate">
                     {item.locations.map((l) => `${fmtVault(l.vault)} (×${l.quantity})`).join(", ")}
+                  </td>
+                  <td className="py-2 px-3" onClick={(e) => e.stopPropagation()}>
+                    <TagEditor resource={{ kind: "item", typeId: item.typeId }} emptyLabel="—" />
                   </td>
                 </tr>
               );
